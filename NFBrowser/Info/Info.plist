@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>NF Browser</string>
+	<string>NFBrowser</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -63,7 +63,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>NF Browser</string>
+			<string>NFBrowser</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>http</string>

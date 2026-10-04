@@ -15,6 +15,11 @@ extension ModelConfiguration {
         }
     }
 
+    /// Creates a ModelContainer using the standard NFBrowser database configuration
+    static func createNFBrowserContainer(isPrivate: Bool = false) throws -> ModelContainer {
+        try createOraContainer(isPrivate: isPrivate)
+    }
+
     /// Creates a ModelContainer using the standard Ora database configuration
     static func createOraContainer(isPrivate: Bool = false) throws -> ModelContainer {
         return try ModelContainer(

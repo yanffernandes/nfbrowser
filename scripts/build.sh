@@ -16,15 +16,15 @@ source "$SCRIPT_DIR/_common.sh"
 load_env TEAM_ID SIGNING_IDENTITY DEVELOPER_ID_PROFILE APP_SPECIFIC_PASSWORD_KEYCHAIN
 
 VERSION=$(grep "MARKETING_VERSION:" project.yml | sed 's/.*MARKETING_VERSION: //' | tr -d ' ')
-DMG_NAME="NF-Browser-${VERSION}.dmg"
-ARCHIVE_PATH="build/NF Browser.xcarchive"
+DMG_NAME="NFBrowser-${VERSION}.dmg"
+ARCHIVE_PATH="build/NFBrowser.xcarchive"
 EXPORT_PATH="build/export"
-EXPORT_OPTIONS_PLIST="/tmp/ora-export-options.plist"
-NOTARY_RESULT_PLIST="/tmp/ora-notary-result.plist"
+EXPORT_OPTIONS_PLIST="/tmp/nfbrowser-export-options.plist"
+NOTARY_RESULT_PLIST="/tmp/nfbrowser-notary-result.plist"
 NOTARY_LOG_FILE="build/notary-log.json"
 trap 'rm -f "$EXPORT_OPTIONS_PLIST"' EXIT
 
-step "Building NF Browser v${VERSION}"
+step "Building NFBrowser v${VERSION}"
 
 # Clean build dir.
 rm -rf build/
@@ -48,7 +48,7 @@ cat > "$EXPORT_OPTIONS_PLIST" <<EOF
     <string>${TEAM_ID}</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>com.orabrowser.app</key>
+        <key>org.nflab.browser</key>
         <string>${DEVELOPER_ID_PROFILE}</string>
     </dict>
 </dict>
@@ -58,14 +58,14 @@ EOF
 echo "Archiving (this may take a few minutes)..."
 if command -v xcbeautify >/dev/null 2>&1; then
     DEVELOPMENT_TEAM="$TEAM_ID" xcodebuild archive \
-        -scheme ora \
+        -scheme NFBrowser \
         -configuration Release \
         -destination "platform=macOS" \
         -archivePath "$ARCHIVE_PATH" \
         2>&1 | xcbeautify
 else
     DEVELOPMENT_TEAM="$TEAM_ID" xcodebuild archive \
-        -scheme ora \
+        -scheme NFBrowser \
         -configuration Release \
         -destination "platform=macOS" \
         -archivePath "$ARCHIVE_PATH"
@@ -79,14 +79,14 @@ xcodebuild -exportArchive \
     -exportPath "$EXPORT_PATH" \
     -exportOptionsPlist "$EXPORT_OPTIONS_PLIST"
 
-APP_PATH="$EXPORT_PATH/NF Browser.app"
+APP_PATH="$EXPORT_PATH/NFBrowser.app"
 [[ -d "$APP_PATH" ]] || die "Export failed — ${APP_PATH} not found."
 
 echo "Copying exported app bundle..."
-ditto "$APP_PATH" "build/NF Browser.app"
+ditto "$APP_PATH" "build/NFBrowser.app"
 
 echo "Verifying exported app signature..."
-codesign --verify --deep --strict --verbose=4 "build/NF Browser.app" >/dev/null || die "App signature verification failed after export."
+codesign --verify --deep --strict --verbose=4 "build/NFBrowser.app" >/dev/null || die "App signature verification failed after export."
 
 # --- Sign ---
 
@@ -96,10 +96,10 @@ echo "Creating DMG..."
 create-dmg \
     --app-drop-link 600 185 \
     --window-size 800 400 \
-    --volname "NF Browser" \
+    --volname "NFBrowser" \
     --skip-jenkins \
     "build/${DMG_NAME}" \
-    "build/NF Browser.app" 2>/dev/null || true
+    "build/NFBrowser.app" 2>/dev/null || true
 
 # create-dmg sometimes uses a temp name
 TEMP_DMG=$(ls build/rw.*.dmg 2>/dev/null | head -1 || true)
@@ -138,6 +138,6 @@ fi
 
 echo "Stapling notarization ticket..."
 xcrun stapler staple "build/${DMG_NAME}"
-xcrun stapler staple "build/NF Browser.app"
+xcrun stapler staple "build/NFBrowser.app"
 
 green "Build complete: build/${DMG_NAME} ($(du -h "build/${DMG_NAME}" | cut -f1))"

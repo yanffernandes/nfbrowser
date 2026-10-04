@@ -11,7 +11,8 @@ final class PrivacyMode: ObservableObject {
     }
 }
 
-struct OraRoot: View {
+struct NFBrowserRoot: View {
+typealias OraRoot = NFBrowserRoot
     @StateObject private var appState = AppState()
     @StateObject private var keyModifierListener = KeyModifierListener()
     @StateObject private var updateService = UpdateService()

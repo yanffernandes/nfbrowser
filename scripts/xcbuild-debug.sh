@@ -1,6 +1,6 @@
 #!/bin/bash
 set -o pipefail && xcodebuild build \
-  -scheme ora \
+  -scheme NFBrowser \
   -destination "platform=macOS" \
   -configuration Debug \
   -skipPackagePluginValidation \

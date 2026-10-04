@@ -1,6 +1,6 @@
 <div align="center">
-  <img width="128" height="128" src="/assets/icon.png" alt="NF Browser icon by NFLab">
-  <h1>NF Browser</h1>
+  <img width="128" height="128" src="/assets/icon.png" alt="NFBrowser icon by NFLab">
+  <h1>NFBrowser</h1>
   <p>A fast, fluid, native dual-engine browser for macOS with AI Agent capabilities by <a href="https://nflab.org/">NFLab · No Filter Lab</a>.</p>
 </div>
 
@@ -12,13 +12,13 @@
 </p>
 
 > [!NOTE]
-> NF Browser is an experimental macOS browser by NFLab designed for maximum fluid navigation, spaces productivity, and integrated local AI Agent pairing.
+> NFBrowser is an experimental macOS browser by NFLab designed for maximum fluid navigation, spaces productivity, and integrated local AI Agent pairing.
 
 ## Overview
 
-NF Browser is a native macOS browser built with SwiftUI, AppKit, WebKit, and Chromium. It is an open-source experiment by NFLab — a laboratory for building, testing, learning, and sharing projects without commercial pressure.
+NFBrowser is a native macOS browser built with SwiftUI, AppKit, WebKit, and Chromium. It is an open-source experiment by NFLab — a laboratory for building, testing, learning, and sharing projects without commercial pressure.
 
-The codebase is derived from [Ora Browser](https://github.com/the-ora/browser). NF Browser retains the original project's GPL-3.0 license and upstream copyright notices.
+The codebase is derived from [Ora Browser](https://github.com/the-ora/browser). NFBrowser retains the original project's GPL-3.0 license and upstream copyright notices.
 
 ## Key Features
 
@@ -42,14 +42,14 @@ cd nfbrowser
 ./scripts/install.sh --launch
 ```
 
-The install script compiles the project, codesigns the bundle ad-hoc, and installs it directly to `/Applications/NF Browser.app`.
+The install script compiles the project, codesigns the bundle ad-hoc, and installs it directly to `/Applications/NFBrowser.app`.
 
 ## Development
 
-- **App Target**: `ora` (produces `NF Browser.app`)
+- **App Target**: `NFBrowser` (produces `NFBrowser.app`)
 - **Project Generation**: XcodeGen via `project.yml` (`xcodegen`)
-- **Testing**: `xcodebuild test -scheme ora -destination "platform=macOS"`
+- **Testing**: `xcodebuild test -scheme NFBrowser -destination "platform=macOS"`
 
 ## Open Source & Credits
 
-NF Browser is licensed under [GPL-3.0](LICENSE). It builds upon the foundational work of the [Ora Browser](https://github.com/the-ora/browser) team and its open-source contributors. All original copyrights and author attributions are preserved in the git history and license files.
+NFBrowser is licensed under [GPL-3.0](LICENSE). It builds upon the foundational work of the [Ora Browser](https://github.com/the-ora/browser) team and its open-source contributors. All original copyrights and author attributions are preserved in the git history and license files.

@@ -1,6 +1,7 @@
 import SwiftUI
 
-struct OraCommands: Commands {
+struct NFBrowserCommands: Commands {
+typealias OraCommands = NFBrowserCommands
     @AppStorage("AppAppearance") private var appearanceRaw: String = AppAppearance.system.rawValue
     @AppStorage("ui.sidebar.hidden") private var isSidebarHidden: Bool = false
     @AppStorage("ui.sidebar.position") private var sidebarPosition: SidebarPosition = .primary

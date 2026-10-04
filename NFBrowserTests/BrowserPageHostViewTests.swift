@@ -1,5 +1,5 @@
 import AppKit
-@testable import Ora
+@testable import NFBrowser
 import Testing
 
 @MainActor

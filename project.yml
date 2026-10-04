@@ -1,6 +1,6 @@
-name: Ora
+name: NFBrowser
 options:
-  bundleIdPrefix: com.orabrowser
+  bundleIdPrefix: org.nflab
 
 packages:
   Inject:
@@ -17,19 +17,19 @@ packages:
     exactVersion: 1.20.0
 
 targets:
-  ora:
+  NFBrowser:
     type: application
     platform: "macOS"
     deploymentTarget: "15.0"
     sources:
-      - path: ora
+      - path: NFBrowser
         excludes:
           - "Assets/Icons/**"
     resources:
-      - path: ora/Shared/EmojiPicker/emoji-set.json
-      - path: ora/Resources
+      - path: NFBrowser/Shared/EmojiPicker/emoji-set.json
+      - path: NFBrowser/Resources
         optional: true
-      - path: ora/Resources/BrowserAgent/ora-browser.py
+      - path: NFBrowser/Resources/BrowserAgent/ora-browser.py
     dependencies:
       - package: Inject
       - package: FaviconFinder
@@ -40,14 +40,14 @@ targets:
     preBuildScripts:
       - name: "Copy Icon Bundle"
         inputFiles:
-          - "$(SRCROOT)/ora/Assets/Icons/OraIcon.icon"
-          - "$(SRCROOT)/ora/Assets/Icons/OraIconDev.icon"
+          - "$(SRCROOT)/NFBrowser/Assets/Icons/OraIcon.icon"
+          - "$(SRCROOT)/NFBrowser/Assets/Icons/OraIconDev.icon"
         outputFiles:
           - "$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/OraIcon.icon"
           - "$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/OraIconDev.icon"
         script: |
-          ICON_SRC_DEV="$SRCROOT/ora/Assets/Icons/OraIconDev.icon"
-          ICON_SRC_RELEASE="$SRCROOT/ora/Assets/Icons/OraIcon.icon"
+          ICON_SRC_DEV="$SRCROOT/NFBrowser/Assets/Icons/OraIconDev.icon"
+          ICON_SRC_RELEASE="$SRCROOT/NFBrowser/Assets/Icons/OraIcon.icon"
           ICON_DST="$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app/Contents/Resources/"
           if [ "$CONFIGURATION" = "Debug" ]; then
               echo "Using OraIconDev.icon for Debug build"
@@ -58,13 +58,13 @@ targets:
           fi
 
     info:
-      path: ora/Info/Info.plist
+      path: NFBrowser/Info/Info.plist
       properties:
-        CFBundleDisplayName: NF Browser
+        CFBundleDisplayName: NFBrowser
         NSCameraUsageDescription: "Allows websites to use the camera, for example during video calls."
         NSMicrophoneUsageDescription: "Allows websites to use the microphone, for example during calls or dictation."
         CFBundleURLTypes:
-          - CFBundleURLName: NF Browser
+          - CFBundleURLName: NFBrowser
             CFBundleTypeRole: Editor
             LSHandlerRank: Owner
             CFBundleURLSchemes:
@@ -92,13 +92,7 @@ targets:
         LSApplicationCategoryType: public.app-category.web-browser
 
     entitlements:
-      path: ora/Info/ora.entitlements
-      properties:
-        com.apple.security.cs.allow-jit: true
-        com.apple.security.device.audio-input: true
-        com.apple.security.device.camera: true
-        com.apple.developer.web-browser: true
-        com.apple.developer.web-browser.public-key-credential: true
+      path: NFBrowser/Info/NFBrowser-debug.entitlements
 
     settings:
       base:
@@ -106,15 +100,15 @@ targets:
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: 0.2.14
         CURRENT_PROJECT_VERSION: 105
-        PRODUCT_NAME: NF Browser
-        PRODUCT_MODULE_NAME: Ora
-        PRODUCT_BUNDLE_IDENTIFIER: com.orabrowser.app
+        PRODUCT_NAME: NFBrowser
+        PRODUCT_MODULE_NAME: NFBrowser
+        PRODUCT_BUNDLE_IDENTIFIER: org.nflab.browser
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
       configs:
         Debug:
           ASSETCATALOG_COMPILER_APPICON_NAME: OraIconDev
-          CODE_SIGN_ENTITLEMENTS: ora/Info/ora.entitlements
+          CODE_SIGN_ENTITLEMENTS: NFBrowser/Info/NFBrowser-debug.entitlements
           CODE_SIGN_STYLE: Automatic
           CODE_SIGN_IDENTITY: "Developer ID Application"
           EMIT_FRONTEND_COMMAND_LINES: YES
@@ -122,36 +116,49 @@ targets:
           ENABLE_HARDENED_RUNTIME: NO
         Release:
           ASSETCATALOG_COMPILER_APPICON_NAME: OraIcon
-          CODE_SIGN_ENTITLEMENTS: ora/Info/ora.entitlements
+          CODE_SIGN_ENTITLEMENTS: NFBrowser/Info/NFBrowser.entitlements
           CODE_SIGN_STYLE: Automatic
           CODE_SIGN_IDENTITY: "Developer ID Application"
           ENABLE_HARDENED_RUNTIME: YES
 
-  oraTests:
+  NFBrowserTests:
     type: bundle.unit-test
     platform: "macOS"
     deploymentTarget: "15.0"
     sources:
-      - path: oraTests
+      - path: NFBrowserTests
     dependencies:
-      - target: ora
+      - target: NFBrowser
     settings:
       base:
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/NF Browser.app/Contents/MacOS/NF Browser"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/NFBrowser.app/Contents/MacOS/NFBrowser"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  NFBrowserUITests:
+    type: bundle.ui-testing
+    platform: "macOS"
+    deploymentTarget: "15.0"
+    sources:
+      - path: NFBrowserUITests
+    dependencies:
+      - target: NFBrowser
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
-  ora:
+  NFBrowser:
     shared: true
     build:
       targets:
-        ora: all
+        NFBrowser: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - oraTests
+        - NFBrowserTests
     profile:
       config: Release
     analyze:

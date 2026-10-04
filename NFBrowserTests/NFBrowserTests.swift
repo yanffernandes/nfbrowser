@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import Ora
+@testable import NFBrowser
 import Testing
 
 private final class RequestCountingURLProtocol: URLProtocol, @unchecked Sendable {

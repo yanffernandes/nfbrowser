@@ -32,7 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             any.makeKeyAndOrderFront(nil)
             return any
         }
-        return WindowFactory.makeMainWindow(rootView: OraRoot())
+        return WindowFactory.makeMainWindow(rootView: NFBrowserRoot())
     }
 
     func handleIncomingURLs(_ urls: [URL]) {
@@ -66,7 +66,8 @@ class AppState: ObservableObject {
 }
 
 @main
-struct OraApp: App {
+struct NFBrowserApp: App {
+    typealias OraApp = NFBrowserApp
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     /// Shared model container that uses the same configuration as the main browser
@@ -75,7 +76,7 @@ struct OraApp: App {
 
     var body: some Scene {
         WindowGroup(id: "normal") {
-            OraRoot()
+            NFBrowserRoot()
                 .frame(minWidth: 500, minHeight: 360)
                 .environmentObject(DefaultBrowserManager.shared)
         }
@@ -85,7 +86,7 @@ struct OraApp: App {
         .handlesExternalEvents(matching: [])
 
         WindowGroup("Private", id: "private") {
-            OraRoot(isPrivate: true)
+            NFBrowserRoot(isPrivate: true)
                 .frame(minWidth: 500, minHeight: 360)
                 .environmentObject(DefaultBrowserManager.shared)
         }
@@ -114,6 +115,6 @@ struct OraApp: App {
         .windowToolbarStyle(UnifiedCompactWindowToolbarStyle())
         .windowResizability(.contentSize)
         .defaultSize(width: 980, height: 640)
-        .commands { OraCommands() }
+        .commands { NFBrowserCommands() }
     }
 }

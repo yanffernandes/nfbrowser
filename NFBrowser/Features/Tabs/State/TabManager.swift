@@ -58,8 +58,6 @@ class TabManager: ObservableObject {
     /// Note: Could be made injectable via init parameter if preferred
     let tabSearchingService: TabSearchingProviding
 
-    @Query(sort: \TabContainer.lastAccessedAt, order: .reverse) var containers: [TabContainer]
-
     private var cleanupTimer: Timer?
     private var recentlyClosedTabs: [ClosedTabSnapshot] = []
     private let maxRecentlyClosedTabs = 5
