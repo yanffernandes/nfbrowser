@@ -3,5 +3,6 @@ set -o pipefail && xcodebuild build \
   -scheme ora \
   -destination "platform=macOS" \
   -configuration Debug \
+  -skipPackagePluginValidation \
   CODE_SIGN_IDENTITY="" \
   CODE_SIGNING_REQUIRED=NO | xcbeautify
