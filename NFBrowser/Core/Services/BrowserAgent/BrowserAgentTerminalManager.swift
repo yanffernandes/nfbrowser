@@ -186,16 +186,30 @@ private struct BrowserAgentWorkspace {
 
     static func prepare() throws -> Self {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("NFBrowser", isDirectory: true)
+            .appendingPathComponent("Browser Agent", isDirectory: true)
+        let legacyAppSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Ora", isDirectory: true)
             .appendingPathComponent("Browser Agent", isDirectory: true)
+
+        // Migrate any existing workspace files from legacy "Ora/Browser Agent"
+        if !FileManager.default.fileExists(atPath: appSupport.path),
+           FileManager.default.fileExists(atPath: legacyAppSupport.path)
+        {
+            try? FileManager.default.copyItem(at: legacyAppSupport, to: appSupport)
+        }
+
         let tools = appSupport.appendingPathComponent("Tools", isDirectory: true)
         try FileManager.default.createDirectory(at: tools, withIntermediateDirectories: true)
 
         let skill = try bundledResource(named: "SKILL.md")
         let command = try bundledResource(named: "ora-browser.py")
         for relativePath in [
+            ".agents/skills/nf-browser/SKILL.md",
             ".agents/skills/ora-browser/SKILL.md",
+            ".claude/skills/nf-browser/SKILL.md",
             ".claude/skills/ora-browser/SKILL.md",
+            ".gemini/skills/nf-browser/SKILL.md",
             ".gemini/skills/ora-browser/SKILL.md"
         ] {
             let destination = appSupport.appendingPathComponent(relativePath)
@@ -205,6 +219,10 @@ private struct BrowserAgentWorkspace {
             )
             try skill.write(to: destination, atomically: true, encoding: .utf8)
         }
+
+        let nfCommandPath = tools.appendingPathComponent("nf-browser")
+        try command.write(to: nfCommandPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: nfCommandPath.path)
 
         let commandPath = tools.appendingPathComponent("ora-browser")
         try command.write(to: commandPath, atomically: true, encoding: .utf8)
