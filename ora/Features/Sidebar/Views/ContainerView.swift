@@ -5,6 +5,7 @@ struct ContainerView: View {
     let selectedContainer: String
     let containers: [TabContainer]
 
+    @Environment(\.theme) private var theme
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var toolbarManager: ToolbarManager
     @EnvironmentObject var tabManager: TabManager
@@ -20,6 +21,43 @@ struct ContainerView: View {
                 SidebarURLDisplay()
             }
             if !privacyMode.isPrivate {
+                // Space Header: Name and Engine Badge
+                HStack(alignment: .center, spacing: 8) {
+                    Image(systemName: container.systemImage)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
+
+                    Text(container.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(theme.foreground)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    // Engine Badge
+                    HStack(spacing: 4) {
+                        Image(systemName: container.engineKind.iconSystemName)
+                            .font(.system(size: 9, weight: .medium))
+                        Text(container.engineKind.displayName)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        container.engineKind == .chromium
+                            ? Color.blue.opacity(0.18)
+                            : theme.mutedBackground
+                    )
+                    .foregroundColor(
+                        container.engineKind == .chromium
+                            ? Color.blue
+                            : theme.mutedForeground
+                    )
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
+
                 VStack(alignment: .leading, spacing: 8) {
                     SidebarTabSectionHeader(
                         title: "Favorites",

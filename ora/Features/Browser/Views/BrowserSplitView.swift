@@ -19,11 +19,11 @@ struct BrowserSplitView: View {
     }
 
     private var minPF: CGFloat {
-        sidebarManager.sidebarPosition == .primary ? 0.16 : 0.7
+        sidebarManager.sidebarPosition == .primary ? 0.10 : 0.7
     }
 
     private var minSF: CGFloat {
-        sidebarManager.sidebarPosition == .primary ? 0.7 : 0.16
+        sidebarManager.sidebarPosition == .primary ? 0.7 : 0.10
     }
 
     private var prioritySide: SplitSide {
@@ -94,7 +94,10 @@ struct BrowserSplitView: View {
                     }
                 )
                 .fraction(browserAgentTerminal.contentFraction)
-                .constraints(minPFraction: 0.42, minSFraction: 0.24, priority: .primary)
+                .splitter {
+                    AgentPanelSplitter()
+                }
+                .constraints(minPFraction: 0.30, minSFraction: 0.10, priority: .primary)
                 .styling(visibleThickness: 1)
             } else if let activeTab = tabManager.activeTab {
                 BrowserContentContainer {
@@ -107,5 +110,51 @@ struct BrowserSplitView: View {
             }
         }
         .toast(manager: toastManager)
+    }
+}
+
+@MainActor
+private struct AgentPanelSplitter: SplitDivider {
+    public var styling: SplitStyling
+    @State private var isHovering = false
+    @State private var isCursorPushed = false
+
+    init() {
+        self.styling = SplitStyling(color: .clear, inset: 0, visibleThickness: 1, invisibleThickness: 14)
+    }
+
+    init(styling: SplitStyling) {
+        self.styling = styling
+    }
+
+    var body: some View {
+        ZStack {
+            // Invisible wider hit area for easy grabbing
+            Color.clear
+                .frame(width: 14)
+
+            // Refined, subtle white divider line that brightens on hover
+            Rectangle()
+                .fill(isHovering ? Color.white.opacity(0.40) : Color.white.opacity(0.12))
+                .frame(width: 1)
+                .animation(.easeInOut(duration: 0.15), value: isHovering)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering && !isCursorPushed {
+                NSCursor.resizeLeftRight.push()
+                isCursorPushed = true
+            } else if !hovering && isCursorPushed {
+                NSCursor.pop()
+                isCursorPushed = false
+            }
+        }
+        .onDisappear {
+            if isCursorPushed {
+                NSCursor.pop()
+                isCursorPushed = false
+            }
+        }
     }
 }

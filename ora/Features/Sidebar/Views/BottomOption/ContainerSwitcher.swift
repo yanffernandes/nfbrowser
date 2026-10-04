@@ -35,12 +35,7 @@ struct ContainerSwitcher: View {
     }
 
     private var orderedContainers: [TabContainer] {
-        containers.sorted {
-            if $0.sidebarSortOrder == $1.sidebarSortOrder {
-                return $0.createdAt < $1.createdAt
-            }
-            return $0.sidebarSortOrder < $1.sidebarSortOrder
-        }
+        containers.sorted(by: TabContainer.stableSort)
     }
 
     @ViewBuilder
@@ -81,7 +76,33 @@ struct ContainerSwitcher: View {
             }
         }
         .contextMenu {
-            Button("Edit Container") {
+            Menu("Ícone") {
+                ForEach(SpaceIcon.groups) { group in
+                    Section(group.title) {
+                        ForEach(group.icons) { icon in
+                            Button {
+                                tabManager.renameContainer(
+                                    container,
+                                    name: container.name,
+                                    emoji: container.emoji,
+                                    iconSystemName: icon.name
+                                )
+                            } label: {
+                                HStack {
+                                    Label(icon.label, systemImage: icon.name)
+                                    if container.systemImage == icon.name {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Button("Edit Space") {
                 dialogManager.show { id in
                     EditContainerModal(
                         container: container,
@@ -90,7 +111,7 @@ struct ContainerSwitcher: View {
                     .environmentObject(tabManager)
                 }
             }
-            Button("Delete Container") {
+            Button("Delete Space") {
                 dialogManager.confirm(
                     title: "Delete \"\(container.name)\"?",
                     message: "All tabs in this space will be permanently removed.",

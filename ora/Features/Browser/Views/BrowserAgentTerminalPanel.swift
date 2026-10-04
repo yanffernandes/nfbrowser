@@ -19,8 +19,7 @@ struct BrowserAgentTerminalPanel: View {
                     }
                 }
                 .labelsHidden()
-                .fixedSize()
-                .frame(maxWidth: 160)
+                .frame(minWidth: 80, maxWidth: 150)
                 .disabled(manager.isProcessRunning || manager.isStarting)
 
                 if manager.isProcessRunning, manager.terminalTitle != "NF Browser Agent" {
@@ -29,10 +28,10 @@ struct BrowserAgentTerminalPanel: View {
                         .foregroundStyle(theme.mutedForeground)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .frame(maxWidth: 170, alignment: .leading)
+                        .frame(maxWidth: 130, alignment: .leading)
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 4)
 
                 Button {
                     manager.startSelectedCLI()
@@ -67,7 +66,7 @@ struct BrowserAgentTerminalPanel: View {
                 .controlSize(.small)
                 .help("Hide the agent terminal")
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
             .frame(height: 42)
             .background(theme.subtleWindowBackgroundColor)
 
@@ -132,11 +131,6 @@ struct BrowserAgentTerminalPanel: View {
             .background(theme.subtleWindowBackgroundColor)
         }
         .background(theme.background)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(Color.black.opacity(0.12))
-                .frame(width: 1)
-        }
     }
 
     private var emptyState: some View {

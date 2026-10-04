@@ -34,6 +34,7 @@ private struct NewContainerDialog: View {
 
     @State private var name = ""
     @State private var iconSystemName = ""
+    @State private var selectedEngine: BrowserEngineKind = .webkit
 
     @Environment(\.theme) private var theme
     @EnvironmentObject var tabManager: TabManager
@@ -42,13 +43,13 @@ private struct NewContainerDialog: View {
         // Outer frame
         VStack(alignment: .leading, spacing: 0) {
             // Inner content
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 14) {
                 // Icon
-                OraIcons(icon: .spaceCards, size: .custom(42), color: theme.mutedForeground)
+                OraIcons(icon: .spaceCards, size: .custom(36), color: theme.mutedForeground)
 
                 // Title
                 Text("Create a new Space")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(theme.foreground)
 
                 // Form section
@@ -63,14 +64,37 @@ private struct NewContainerDialog: View {
                         onSubmit: createContainer
                     )
 
+                    // Engine Selection
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Browser Engine")
+                            .font(.system(size: 13))
+                            .foregroundColor(theme.mutedForeground)
+
+                        HStack(spacing: 8) {
+                            ForEach(BrowserEngineKind.allCases) { engine in
+                                EngineOptionButton(
+                                    engine: engine,
+                                    isSelected: selectedEngine == engine,
+                                    action: { selectedEngine = engine }
+                                )
+                            }
+                        }
+
+                        Text(selectedEngine.shortDescription)
+                            .font(.system(size: 11))
+                            .foregroundColor(theme.mutedForeground.opacity(0.85))
+                    }
+                    .padding(.top, 4)
+
                     // Info text
                     HStack(spacing: 4) {
                         Image(systemName: "info.circle")
                             .font(.system(size: 11))
-                        Text("Spaces are an isolated profiles with their own history, passwords, configs, etc.")
+                        Text("Spaces are isolated profiles with their own history, logins, and engine data.")
                             .font(.system(size: 11))
                     }
                     .foregroundColor(theme.mutedForeground)
+                    .padding(.top, 4)
                 }
 
                 Spacer()
@@ -107,7 +131,55 @@ private struct NewContainerDialog: View {
 
     private func createContainer() {
         guard !name.isEmpty else { return }
-        tabManager.createContainer(name: name, emoji: "", iconSystemName: iconSystemName)
+        tabManager.createContainer(
+            name: name,
+            emoji: "",
+            iconSystemName: iconSystemName,
+            engine: selectedEngine
+        )
         dismiss()
+    }
+}
+
+struct EngineOptionButton: View {
+    let engine: BrowserEngineKind
+    let isSelected: Bool
+    let action: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: engine.iconSystemName)
+                    .font(.system(size: 12, weight: .medium))
+                Text(engine.displayName)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(backgroundColor)
+            .foregroundColor(foregroundColor)
+            .cornerRadius(7)
+            .overlay(borderOverlay)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var backgroundColor: Color {
+        isSelected ? theme.accent.opacity(0.18) : theme.mutedBackground.opacity(0.6)
+    }
+
+    private var foregroundColor: Color {
+        isSelected ? theme.accent : theme.foreground
+    }
+
+    private var borderOverlay: some View {
+        RoundedRectangle(cornerRadius: 7)
+            .stroke(
+                isSelected ? theme.accent : theme.border.opacity(0.5),
+                lineWidth: isSelected ? 1 : 0.5
+            )
     }
 }

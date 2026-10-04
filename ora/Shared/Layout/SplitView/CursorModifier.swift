@@ -8,35 +8,24 @@ extension View {
 
 struct CursorModifier: ViewModifier {
     let cursor: NSCursor
+    @State private var isPushed = false
 
     func body(content: Content) -> some View {
-        content.overlay(
-            GeometryReader { proxy in
-                Representable(
-                    cursor: cursor,
-                    frame: proxy.frame(in: .global)
-                )
+        content
+            .onHover { inside in
+                if inside && !isPushed {
+                    cursor.push()
+                    isPushed = true
+                } else if !inside && isPushed {
+                    NSCursor.pop()
+                    isPushed = false
+                }
             }
-        )
-    }
-
-    private class CustomCursorView: NSView {
-        var cursor: NSCursor!
-        override func resetCursorRects() {
-            addCursorRect(bounds, cursor: cursor)
-        }
-    }
-
-    private struct Representable: NSViewRepresentable {
-        let cursor: NSCursor
-        let frame: NSRect
-
-        func makeNSView(context: Context) -> NSView {
-            let cursorView = CustomCursorView(frame: frame)
-            cursorView.cursor = cursor
-            return cursorView
-        }
-
-        func updateNSView(_ nsView: NSView, context: Context) {}
+            .onDisappear {
+                if isPushed {
+                    NSCursor.pop()
+                    isPushed = false
+                }
+            }
     }
 }

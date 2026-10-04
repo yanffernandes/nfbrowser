@@ -9,6 +9,7 @@ struct EditContainerModal: View {
 
     @State private var name: String = ""
     @State private var iconSystemName: String = ""
+    @State private var selectedEngine: BrowserEngineKind = .webkit
 
     var body: some View {
         // Outer frame
@@ -46,7 +47,7 @@ struct EditContainerModal: View {
                 Text("Edit Space")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(theme.foreground)
-                Text("Update the name and icon")
+                Text("Update name, icon, and browser engine")
                     .font(.system(size: 13))
                     .foregroundColor(theme.mutedForeground)
             }
@@ -55,11 +56,35 @@ struct EditContainerModal: View {
     }
 
     private var containerForm: some View {
-        ContainerForm(
-            name: $name,
-            iconSystemName: $iconSystemName,
-            onSubmit: saveContainer
-        )
+        VStack(alignment: .leading, spacing: 12) {
+            ContainerForm(
+                name: $name,
+                iconSystemName: $iconSystemName,
+                onSubmit: saveContainer
+            )
+
+            // Engine Selection
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Browser Engine")
+                    .font(.system(size: 13))
+                    .foregroundColor(theme.mutedForeground)
+
+                HStack(spacing: 8) {
+                    ForEach(BrowserEngineKind.allCases) { engine in
+                        EngineOptionButton(
+                            engine: engine,
+                            isSelected: selectedEngine == engine,
+                            action: { selectedEngine = engine }
+                        )
+                    }
+                }
+
+                Text(selectedEngine.shortDescription)
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.mutedForeground.opacity(0.85))
+            }
+            .padding(.top, 4)
+        }
     }
 
     private var actionButtons: some View {
@@ -73,12 +98,15 @@ struct EditContainerModal: View {
     private func setupInitialValues() {
         name = container.name
         iconSystemName = container.systemImage
+        selectedEngine = container.engineKind
     }
 
     private func saveContainer() {
         guard !name.isEmpty else { return }
 
+        container.engineKind = selectedEngine
         tabManager.renameContainer(container, name: name, emoji: "", iconSystemName: iconSystemName)
+        try? tabManager.modelContext.save()
         dismiss()
     }
 }

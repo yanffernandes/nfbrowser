@@ -15,9 +15,13 @@ struct SidebarView: View {
     @EnvironmentObject var sidebarManager: SidebarManager
     @EnvironmentObject var toolbarManager: ToolbarManager
 
-    @Query var containers: [TabContainer]
+    @Query var rawContainers: [TabContainer]
     @Query(filter: nil, sort: [.init(\History.lastAccessedAt, order: .reverse)])
     var histories: [History]
+
+    private var containers: [TabContainer] {
+        rawContainers.sorted(by: TabContainer.stableSort)
+    }
 
     private let columns = Array(repeating: GridItem(spacing: 10), count: 3)
 
@@ -160,7 +164,7 @@ struct SidebarView: View {
             NSPageView(
                 selection: selectedContainerIndex,
                 pageObjects: containers,
-                idKeyPath: \.name
+                idKeyPath: \.idString
             ) { container in
                 ContainerView(
                     container: container,
