@@ -53,6 +53,9 @@ class Tab: ObservableObject, Identifiable {
     @Transient var passwordCoordinator: PasswordAutofillCoordinator?
     @Transient @Published var passwordOverlayState: PasswordAutofillOverlayState?
     @Transient @Published var passwordTriggerOverlayState: PasswordAutofillOverlayState?
+    @Transient @Published var isAgentActive: Bool = false
+    @Transient @Published var agentStatusMessage: String? = nil
+    @Transient private var agentActivityTask: Task<Void, Never>?
 
     @Relationship(inverse: \TabContainer.tabs) var container: TabContainer
 
@@ -255,6 +258,23 @@ class Tab: ObservableObject, Identifiable {
                     self?.pageDelegate = nil
                 }
                 completed()
+            }
+        }
+    }
+
+    @MainActor
+    func markAgentActive(status: String? = nil, duration: TimeInterval = 2.5) {
+        agentActivityTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            self.isAgentActive = true
+            self.agentStatusMessage = status
+        }
+        agentActivityTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                self.isAgentActive = false
+                self.agentStatusMessage = nil
             }
         }
     }

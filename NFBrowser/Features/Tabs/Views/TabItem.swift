@@ -115,6 +115,18 @@ struct TabItem: View {
                         isPlayingMedia: tab.isPlayingMedia
                     )
                     tabTitle
+                    if tab.isAgentActive {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.purple, .blue],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .transition(.scale.combined(with: .opacity))
+                    }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())

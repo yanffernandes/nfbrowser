@@ -193,11 +193,16 @@ final class BrowserAgentBridge: ObservableObject {
         switch action {
         case "tabs": return tabsResponse(from: tabManager)
         case "switch": return switchTab(payload, in: tabManager)
+        case "open", "new-tab": return openNewTab(payload, in: tabManager)
+        case "close-tab": return closeTabAction(payload, in: tabManager)
+        case "search": return searchAction(payload, in: tabManager)
         case "navigate": return navigate(payload, in: tabManager)
         case "snapshot":
             return await snapshot(tabManager.activeTab)
         case "screenshot":
             return await screenshot(tabManager.activeTab)
+        case "text":
+            return await extractText(tabManager.activeTab)
         case "back": return navigateBack(in: tabManager)
         case "forward": return navigateForward(in: tabManager)
         case "reload": return reload(in: tabManager)
@@ -229,8 +234,129 @@ final class BrowserAgentBridge: ObservableObject {
               let tab = container.tabs.first(where: { $0.id == id })
         else { return .failure("Tab not found in the active Space") }
         tabManager.activateTab(tab)
+        tab.markAgentActive(status: "Switched to tab", duration: 2.0)
         references.removeAll()
         return .success(["active_tab": id.uuidString, "url": tab.url.absoluteString])
+    }
+
+    private func openNewTab(_ payload: [String: Any], in tabManager: TabManager) -> BrowserAgentHTTPResponse {
+        guard let rawURL = payload["url"] as? String,
+              let url = URL(string: rawURL),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              url.host != nil
+        else {
+            return .failure("Valid HTTP or HTTPS URL is required")
+        }
+        let focus = payload["focus"] as? Bool ?? true
+        let historyManager = tabManager.activeTab?.historyManager ?? HistoryManager(
+            modelContainer: tabManager.modelContainer,
+            modelContext: tabManager.modelContext
+        )
+        guard let newTab = tabManager.openTab(
+            url: url,
+            historyManager: historyManager,
+            downloadManager: tabManager.activeTab?.downloadManager,
+            focusAfterOpening: focus,
+            isPrivate: tabManager.activeTab?.isPrivate ?? false
+        ) else {
+            return .failure("Could not create tab", status: 500)
+        }
+        newTab.markAgentActive(status: "Opened new tab", duration: 2.5)
+        return .success([
+            "tab_id": newTab.id.uuidString,
+            "url": newTab.url.absoluteString,
+            "title": newTab.title,
+            "focused": focus
+        ])
+    }
+
+    private func closeTabAction(_ payload: [String: Any], in tabManager: TabManager) -> BrowserAgentHTTPResponse {
+        let tab: Tab?
+        if let rawID = payload["tab_id"] as? String, let id = UUID(uuidString: rawID) {
+            tab = tabManager.activeContainer?.tabs.first(where: { $0.id == id })
+        } else {
+            tab = tabManager.activeTab
+        }
+        guard let targetTab = tab else { return .failure("Tab not found") }
+        let idString = targetTab.id.uuidString
+        tabManager.closeTab(tab: targetTab)
+        return .success(["closed_tab": idString])
+    }
+
+    private func searchAction(_ payload: [String: Any], in tabManager: TabManager) -> BrowserAgentHTTPResponse {
+        guard let query = (payload["query"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
+            return .failure("Search query is required")
+        }
+        let openInNewTab = payload["new_tab"] as? Bool ?? true
+        let searchService = SearchEngineService()
+        let containerId = tabManager.activeContainer?.id
+        let searchURL: URL
+        if let engine = searchService.getDefaultSearchEngine(for: containerId),
+           let url = searchService.createSearchURL(for: engine, query: query) {
+            searchURL = url
+        } else if let fallback = URL(string: "https://www.google.com/search?q=" + (query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")) {
+            searchURL = fallback
+        } else {
+            return .failure("Could not create search URL", status: 500)
+        }
+
+        if openInNewTab {
+            let historyManager = tabManager.activeTab?.historyManager ?? HistoryManager(
+                modelContainer: tabManager.modelContainer,
+                modelContext: tabManager.modelContext
+            )
+            guard let newTab = tabManager.openTab(
+                url: searchURL,
+                historyManager: historyManager,
+                downloadManager: tabManager.activeTab?.downloadManager,
+                focusAfterOpening: true,
+                isPrivate: tabManager.activeTab?.isPrivate ?? false
+            ) else {
+                return .failure("Could not open search tab", status: 500)
+            }
+            newTab.markAgentActive(status: "Searching \"\(query)\"...", duration: 3.0)
+            return .success([
+                "tab_id": newTab.id.uuidString,
+                "query": query,
+                "url": searchURL.absoluteString
+            ])
+        } else {
+            guard let activeTab = tabManager.activeTab else { return .failure("No active tab") }
+            activeTab.loadURL(searchURL.absoluteString)
+            activeTab.markAgentActive(status: "Searching \"\(query)\"...", duration: 3.0)
+            return .success([
+                "tab_id": activeTab.id.uuidString,
+                "query": query,
+                "url": searchURL.absoluteString
+            ])
+        }
+    }
+
+    private func extractText(_ tab: Tab?) async -> BrowserAgentHTTPResponse {
+        guard let tab, tab.isWebViewReady else { return .failure("No active page") }
+        tab.markAgentActive(status: "Reading page text...", duration: 2.0)
+        let script = """
+        (() => {
+          const article = document.querySelector('article, [role="article"], main, [role="main"], .post-content, #content');
+          const root = article || document.body;
+          const text = root ? (root.innerText || "").trim() : "";
+          return JSON.stringify({
+            title: document.title,
+            url: location.href,
+            text: text.slice(0, 80000)
+          });
+        })()
+        """
+        do {
+            let result = try await evaluate(tab, script: script)
+            guard let raw = result as? String,
+                  let data = raw.data(using: .utf8),
+                  let parsed = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { return .failure("Could not extract page text", status: 500) }
+            return .success(parsed)
+        } catch {
+            return .failure("Could not extract page text: \(error.localizedDescription)", status: 500)
+        }
     }
 
     private func navigate(_ payload: [String: Any], in tabManager: TabManager) -> BrowserAgentHTTPResponse {
@@ -243,6 +369,7 @@ final class BrowserAgentBridge: ObservableObject {
               url.password == nil
         else { return .failure("Only absolute HTTP and HTTPS URLs are allowed") }
         tab.loadURL(url.absoluteString)
+        tab.markAgentActive(status: "Navigating to \(url.host ?? "page")...", duration: 3.0)
         references = references.filter { $0.value.tabID != tab.id }
         return .success(["navigating_to": url.absoluteString])
     }
@@ -250,6 +377,7 @@ final class BrowserAgentBridge: ObservableObject {
     private func navigateBack(in tabManager: TabManager) -> BrowserAgentHTTPResponse {
         guard let tab = tabManager.activeTab, tab.canGoBack else { return .failure("No previous page") }
         tab.goBack()
+        tab.markAgentActive(status: "Navigating back...", duration: 2.0)
         references = references.filter { $0.value.tabID != tab.id }
         return .success(["action": "back"])
     }
@@ -257,6 +385,7 @@ final class BrowserAgentBridge: ObservableObject {
     private func navigateForward(in tabManager: TabManager) -> BrowserAgentHTTPResponse {
         guard let tab = tabManager.activeTab, tab.canGoForward else { return .failure("No next page") }
         tab.goForward()
+        tab.markAgentActive(status: "Navigating forward...", duration: 2.0)
         references = references.filter { $0.value.tabID != tab.id }
         return .success(["action": "forward"])
     }
@@ -264,6 +393,7 @@ final class BrowserAgentBridge: ObservableObject {
     private func reload(in tabManager: TabManager) -> BrowserAgentHTTPResponse {
         guard let tab = tabManager.activeTab else { return .failure("No active tab") }
         tab.reload()
+        tab.markAgentActive(status: "Reloading page...", duration: 2.0)
         references = references.filter { $0.value.tabID != tab.id }
         return .success(["action": "reload"])
     }
@@ -277,6 +407,7 @@ final class BrowserAgentBridge: ObservableObject {
         guard ["up", "down", "left", "right"].contains(direction) else {
             return .failure("Direction must be up, down, left, or right")
         }
+        tab.markAgentActive(status: "Scrolling \(direction)...", duration: 1.5)
         let script = "window.scrollBy({left: \(scrollLeft), top: \(scrollTop), behavior: 'smooth'}); true"
         _ = try? await evaluate(tab, script: script)
         return .success(["scrolled": direction, "pixels": pixels])
@@ -284,6 +415,7 @@ final class BrowserAgentBridge: ObservableObject {
 
     private func snapshot(_ tab: Tab?) async -> BrowserAgentHTTPResponse {
         guard let tab, tab.isWebViewReady else { return .failure("No active page") }
+        tab.markAgentActive(status: "Reading page elements...", duration: 2.0)
         let generation = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         guard let generationLiteral = Self.javascriptLiteral(generation) else {
             return .failure("Could not prepare page snapshot", status: 500)
@@ -364,6 +496,7 @@ final class BrowserAgentBridge: ObservableObject {
 
     private func screenshot(_ tab: Tab?) async -> BrowserAgentHTTPResponse {
         guard let tab, tab.isWebViewReady else { return .failure("No active page") }
+        tab.markAgentActive(status: "Capturing viewport screenshot...", duration: 1.5)
         do {
             let image: NSImage = try await withCheckedThrowingContinuation { continuation in
                 tab.takeSnapshot(configuration: .full) { image, error in
@@ -413,6 +546,29 @@ final class BrowserAgentBridge: ObservableObject {
           if (!state || state.generation !== \(generationLiteral)) return "stale";
           const element = state.refs[\(referenceLiteral)];
           if (!element || !element.isConnected || element.disabled) return "stale";
+          try {
+            const rect = element.getBoundingClientRect();
+            const ring = document.createElement("div");
+            ring.style.position = "fixed";
+            ring.style.left = (rect.left - 4) + "px";
+            ring.style.top = (rect.top - 4) + "px";
+            ring.style.width = (rect.width + 8) + "px";
+            ring.style.height = (rect.height + 8) + "px";
+            ring.style.borderRadius = "8px";
+            ring.style.border = "3px solid #8b5cf6";
+            ring.style.boxShadow = "0 0 16px rgba(139, 92, 246, 0.8), inset 0 0 8px rgba(139, 92, 246, 0.4)";
+            ring.style.pointerEvents = "none";
+            ring.style.zIndex = "2147483647";
+            ring.style.transition = "all 0.6s cubic-bezier(0.16, 1, 0.3, 1)";
+            ring.style.transform = "scale(0.95)";
+            ring.style.opacity = "1";
+            document.documentElement.appendChild(ring);
+            requestAnimationFrame(() => {
+              ring.style.transform = "scale(1.08)";
+              ring.style.opacity = "0";
+              setTimeout(() => ring.remove(), 600);
+            });
+          } catch (e) {}
           element.click();
           return "clicked";
         })()
@@ -421,6 +577,7 @@ final class BrowserAgentBridge: ObservableObject {
             let result = try await evaluate(tab, script: script)
             guard result as? String == "clicked"
             else { return .failure("That reference is stale; run ora-browser snapshot again") }
+            tab.markAgentActive(status: "Clicked \(reference)", duration: 2.5)
             references = references.filter { $0.value.tabID != tab.id }
             return .success(["clicked": reference])
         } catch {
@@ -448,6 +605,27 @@ final class BrowserAgentBridge: ObservableObject {
           if (!element || !element.isConnected || element.disabled || element.readOnly) return "stale";
           if (element instanceof HTMLInputElement && ["password", "hidden", "file"].includes(element.type.toLowerCase())) return "sensitive";
           if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement || element.isContentEditable)) return "not-fillable";
+          try {
+            const rect = element.getBoundingClientRect();
+            const ring = document.createElement("div");
+            ring.style.position = "fixed";
+            ring.style.left = (rect.left - 4) + "px";
+            ring.style.top = (rect.top - 4) + "px";
+            ring.style.width = (rect.width + 8) + "px";
+            ring.style.height = (rect.height + 8) + "px";
+            ring.style.borderRadius = "8px";
+            ring.style.border = "2px solid #3b82f6";
+            ring.style.boxShadow = "0 0 14px rgba(59, 130, 246, 0.8)";
+            ring.style.pointerEvents = "none";
+            ring.style.zIndex = "2147483647";
+            ring.style.transition = "all 0.8s ease-out";
+            ring.style.opacity = "1";
+            document.documentElement.appendChild(ring);
+            setTimeout(() => {
+              ring.style.opacity = "0";
+              setTimeout(() => ring.remove(), 800);
+            }, 400);
+          } catch (e) {}
           element.focus();
           if (element.isContentEditable) {
             element.textContent = \(textLiteral);
@@ -464,7 +642,9 @@ final class BrowserAgentBridge: ObservableObject {
         do {
             let result = try await evaluate(tab, script: script) as? String
             switch result {
-            case "filled": return .success(["filled": reference, "submitted": false])
+            case "filled":
+                tab.markAgentActive(status: "Filled \(reference)", duration: 2.5)
+                return .success(["filled": reference, "submitted": false])
             case "sensitive": return .failure("NF Browser will not fill password, hidden, or file inputs")
             case "not-fillable": return .failure("That element is not a text field")
             default: return .failure("That reference is stale; run ora-browser snapshot again")
