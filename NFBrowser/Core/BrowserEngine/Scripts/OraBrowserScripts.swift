@@ -96,6 +96,22 @@ enum OraBrowserScripts {
             titleObserver.observe(titleElement, { childList: true });
         }
 
+        try {
+            const origPushState = history.pushState;
+            history.pushState = function() {
+                const ret = origPushState.apply(this, arguments);
+                setTimeout(() => notifyChange(true), 0);
+                return ret;
+            };
+
+            const origReplaceState = history.replaceState;
+            history.replaceState = function() {
+                const ret = origReplaceState.apply(this, arguments);
+                setTimeout(() => notifyChange(true), 0);
+                return ret;
+            };
+        } catch (e) {}
+
         setInterval(() => notifyChange(), 500);
         window.addEventListener('popstate', () => notifyChange(true));
         notifyChange(true);

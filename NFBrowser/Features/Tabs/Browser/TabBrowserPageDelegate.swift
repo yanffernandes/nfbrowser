@@ -241,12 +241,24 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
         }
 
         let oldTitle = tab.title
-        tab.title = update.title
-        tab.url = URL(string: update.href) ?? tab.url
-        tab.setFavicon()
-        tab.updateHistory()
+        let oldURL = tab.url
+        let newURL = URL(string: update.href) ?? tab.url
 
-        if oldTitle != update.title, !update.title.isEmpty {
+        let titleChanged = oldTitle != update.title && !update.title.isEmpty
+        let urlChanged = oldURL != newURL
+
+        if titleChanged {
+            tab.title = update.title
+        }
+        if urlChanged {
+            tab.url = newURL
+            tab.setFavicon()
+        }
+        if titleChanged || urlChanged {
+            tab.updateHistory()
+        }
+
+        if titleChanged {
             MainActor.assumeIsolated {
                 mediaController?.syncTitleForTab(tab.id, newTitle: update.title)
             }

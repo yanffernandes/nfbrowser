@@ -144,10 +144,9 @@ class Tab: ObservableObject, Identifiable {
     }
 
     func updateHeaderColor() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            if let page = self?.browserPage {
-                self?.pageDelegate?.takeSnapshotAfterLoad(page)
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self, let page = self.browserPage, !page.isLoading else { return }
+            self.pageDelegate?.takeSnapshotAfterLoad(page)
         }
     }
 
@@ -166,14 +165,8 @@ class Tab: ObservableObject, Identifiable {
     }
 
     func maintainSnapShots() {
-        if !self.colorUpdated || self.browserPage?.isLoading == true, self.maybeIsActive {
-            self.updateHeaderColor()
-
-            Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in
-                guard let tab = self else { return }
-                tab.maintainSnapShots()
-            }
-        }
+        guard !self.colorUpdated, self.maybeIsActive else { return }
+        self.updateHeaderColor()
     }
 
     func setupBrowserPageDelegate(for page: BrowserPage) {

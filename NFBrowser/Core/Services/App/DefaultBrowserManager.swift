@@ -18,8 +18,15 @@ class DefaultBrowserManager: ObservableObject {
 
     private init() {
         updateIsDefault()
-        // Periodically check if default browser status changed. I couldn't find another way.
-        Timer.publish(every: 1.0, on: .main, in: .common)
+        // Check when app becomes active (e.g. user returning from System Settings)
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                self?.updateIsDefault()
+            }
+            .store(in: &cancellables)
+
+        // Low-frequency fallback check
+        Timer.publish(every: 30.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 self?.updateIsDefault()
