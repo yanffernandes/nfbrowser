@@ -43,7 +43,8 @@ typealias OraRoot = NFBrowserRoot
             container = try ModelConfiguration.createOraContainer(isPrivate: isPrivate)
             modelContext = ModelContext(container)
         } catch {
-            deleteSwiftDataStore("OraData.sqlite")
+            deleteSwiftDataStore("NFBrowser/NFBrowserData.sqlite")
+            deleteSwiftDataStore("Ora/OraData.sqlite")
             fatalError("Failed to initialize ModelContainer: \(error)")
         }
 
