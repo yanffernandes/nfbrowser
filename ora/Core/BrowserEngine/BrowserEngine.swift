@@ -14,11 +14,19 @@ struct BrowserPageConfiguration {
     let privacySettings: SpacePrivacySettings
 
     static func oraDefault(
+        engineKind: BrowserEngineKind = .webkit,
         userScripts: [BrowserUserScript],
         privacySettings: SpacePrivacySettings
     ) -> BrowserPageConfiguration {
-        BrowserPageConfiguration(
-            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15",
+        let ua: String = switch engineKind {
+        case .webkit:
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
+        case .chromium:
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        }
+
+        return BrowserPageConfiguration(
+            userAgent: ua,
             allowsPictureInPicture: true,
             allowsJavaScript: true,
             allowsJavaScriptWindowsAutomatically: false,
@@ -35,6 +43,7 @@ struct BrowserPageConfiguration {
 
 final class BrowserEngine {
     private struct ProfileKey: Hashable {
+        let engineKind: BrowserEngineKind
         let identifier: UUID
         let isPrivate: Bool
     }
@@ -43,12 +52,16 @@ final class BrowserEngine {
     private let profileCacheLock = NSLock()
     private var profileCache: [ProfileKey: BrowserEngineProfile] = [:]
 
-    func makeProfile(identifier: UUID, isPrivate: Bool) -> BrowserEngineProfile {
+    func makeProfile(
+        engineKind: BrowserEngineKind = .webkit,
+        identifier: UUID,
+        isPrivate: Bool
+    ) -> BrowserEngineProfile {
         if isPrivate {
             return BrowserEngineProfile(identifier: identifier, isPrivate: true)
         }
 
-        let key = ProfileKey(identifier: identifier, isPrivate: false)
+        let key = ProfileKey(engineKind: engineKind, identifier: identifier, isPrivate: false)
         profileCacheLock.lock()
         defer { profileCacheLock.unlock() }
 
@@ -62,10 +75,16 @@ final class BrowserEngine {
     }
 
     func makePage(
+        engineKind: BrowserEngineKind = .webkit,
         profile: BrowserEngineProfile,
         configuration: BrowserPageConfiguration,
         delegate: BrowserPageDelegate?
     ) -> BrowserPage {
-        BrowserPage(profile: profile, configuration: configuration, delegate: delegate)
+        BrowserPage(
+            engineKind: engineKind,
+            profile: profile,
+            configuration: configuration,
+            delegate: delegate
+        )
     }
 }

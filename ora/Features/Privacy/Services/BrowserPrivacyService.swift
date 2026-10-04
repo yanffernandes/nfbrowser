@@ -92,10 +92,26 @@ struct FingerprintingProtectionProfile: Equatable {
 
         return """
         (function () {
+            // Bypass on Google, YouTube, and authentication flows to avoid triggering botguard / OAuth rejection
+            try {
+                const host = window.location.hostname || '';
+                if (host.endsWith('google.com') || host.endsWith('youtube.com') || host.endsWith('gstatic.com') || host.endsWith('googleapis.com') || host.endsWith('googleusercontent.com') || host.endsWith('apple.com')) {
+                    return;
+                }
+            } catch (e) {}
+
             if (window.__oraFingerprintingProtectionInstalled) {
                 return;
             }
-            window.__oraFingerprintingProtectionInstalled = true;
+            try {
+                Object.defineProperty(window, '__oraFingerprintingProtectionInstalled', {
+                    value: true,
+                    enumerable: false,
+                    configurable: true
+                });
+            } catch (e) {
+                window.__oraFingerprintingProtectionInstalled = true;
+            }
 
             const profile = \(profileJSON);
 
@@ -118,9 +134,15 @@ struct FingerprintingProtectionProfile: Equatable {
                 if (!target || typeof target[property] !== 'function') return;
                 const original = target[property];
                 try {
+                    const wrapped = wrapper(original);
+                    try {
+                        Object.defineProperty(wrapped, 'name', { value: property });
+                        wrapped.toString = function () { return 'function ' + property + '() { [native code] }'; };
+                    } catch (e) {}
                     Object.defineProperty(target, property, {
                         configurable: true,
-                        value: wrapper(original)
+                        enumerable: false,
+                        value: wrapped
                     });
                 } catch (error) {}
             }
@@ -242,7 +264,9 @@ struct FingerprintingProtectionProfile: Equatable {
             }
 
             defineValue(Navigator.prototype, 'hardwareConcurrency', profile.hardwareConcurrency);
-            defineValue(Navigator.prototype, 'deviceMemory', profile.deviceMemory);
+            if ('deviceMemory' in navigator) {
+                defineValue(Navigator.prototype, 'deviceMemory', profile.deviceMemory);
+            }
             defineValue(Navigator.prototype, 'maxTouchPoints', profile.maxTouchPoints);
             defineValue(Navigator.prototype, 'webdriver', profile.webdriver);
             defineValue(Navigator.prototype, 'platform', profile.platform);
@@ -573,7 +597,8 @@ final class BrowserPrivacyService {
             [
                 "trigger": [
                     "url-filter": regexForDomain(domain),
-                    "load-type": ["third-party"]
+                    "load-type": ["third-party"],
+                    "unless-domain": ["*google.com", "*youtube.com"]
                 ],
                 "action": ["type": "block"]
             ]

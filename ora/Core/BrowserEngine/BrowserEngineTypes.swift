@@ -1,6 +1,34 @@
 import AppKit
 import Foundation
 
+enum BrowserEngineKind: String, Codable, CaseIterable, Identifiable {
+    case webkit = "webkit"
+    case chromium = "chromium"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .webkit: return "WebKit"
+        case .chromium: return "Chromium"
+        }
+    }
+
+    var shortDescription: String {
+        switch self {
+        case .webkit: return "Native macOS Safari engine (fast & lightweight)"
+        case .chromium: return "Native Chromium engine (maximum compatibility)"
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .webkit: return "safari"
+        case .chromium: return "globe"
+        }
+    }
+}
+
 enum BrowserWebsiteDataType: Hashable {
     case cookies
     case cache

@@ -46,7 +46,7 @@ enum OraBrowserScripts {
             return;
         }
 
-        window.__oraBridge = {
+        const bridge = {
             postMessage: function(name, payload) {
                 try {
                     if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) {
@@ -57,6 +57,17 @@ enum OraBrowserScripts {
                 return false;
             }
         };
+
+        try {
+            Object.defineProperty(window, '__oraBridge', {
+                value: bridge,
+                enumerable: false,
+                configurable: true,
+                writable: true
+            });
+        } catch (e) {
+            window.__oraBridge = bridge;
+        }
     })();
     """
 

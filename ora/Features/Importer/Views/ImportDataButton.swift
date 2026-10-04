@@ -42,13 +42,18 @@ struct ArcImportController: View {
     // swiftlint:disable:next function_body_length
     private func performArcImport() async {
         guard !ArcImportProgress.isRunning else { return }
-        guard !UserDefaults.standard.bool(forKey: Self.arcImportPreferenceKey) else {
-            progressMessage = nil
-            showAlert(
-                title: "Arc was already imported",
-                message: "NF Browser has already imported Arc data on this Mac."
-            )
-            return
+        if UserDefaults.standard.bool(forKey: Self.arcImportPreferenceKey) {
+            let alert = NSAlert()
+            alert.messageText = "Re-import from Arc?"
+            alert.informativeText = "NF Browser has already imported Arc data on this Mac. Would you like to re-import and update your Arc spaces, tabs, cookies, and passwords?"
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "Re-import")
+            alert.addButton(withTitle: "Cancel")
+            let response = alert.runModal()
+            if response != .alertFirstButtonReturn {
+                progressMessage = nil
+                return
+            }
         }
 
         ArcImportProgress.isRunning = true

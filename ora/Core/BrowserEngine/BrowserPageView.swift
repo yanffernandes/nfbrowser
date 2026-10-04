@@ -245,8 +245,10 @@ struct BrowserPageView: NSViewRepresentable {
                     _ = tabManager.openTab(
                         url: url,
                         historyManager: historyManager,
+                        insertAfter: tabManager.activeTab,
                         focusAfterOpening: false,
-                        isPrivate: self?.privacyMode?.isPrivate ?? false
+                        isPrivate: self?.privacyMode?.isPrivate ?? false,
+                        loadSilently: true
                     )
                 }
             }
