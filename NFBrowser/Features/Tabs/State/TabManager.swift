@@ -629,7 +629,9 @@ class TabManager: ObservableObject {
             )
         }
         tab.updateHeaderColor()
-        try? modelContext.save()
+        DispatchQueue.main.async { [weak self] in
+            try? self?.modelContext.save()
+        }
     }
 
     /// Clean up old tabs that haven't been accessed recently to preserve memory

@@ -104,18 +104,33 @@ struct TabItem: View {
     @State private var isHovering = false
 
     var body: some View {
-        HStack {
-            FavIcon(
-                isWebViewReady: tab.isWebViewReady,
-                favicon: tab.favicon,
-                faviconLocalFile: tab.faviconLocalFile,
-                textColor: textColor,
-                isPlayingMedia: tab.isPlayingMedia
-            )
-            tabTitle
-            Spacer()
-            actionButton
+        HStack(spacing: 4) {
+            Button(action: onTap) {
+                HStack(spacing: 8) {
+                    FavIcon(
+                        isWebViewReady: tab.isWebViewReady,
+                        favicon: tab.favicon,
+                        faviconLocalFile: tab.faviconLocalFile,
+                        textColor: textColor,
+                        isPlayingMedia: tab.isPlayingMedia
+                    )
+                    tabTitle
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isHovering {
+                actionButton
+            } else {
+                Color.clear
+                    .frame(width: 20, height: 20)
+            }
         }
+        .padding(.leading, 8)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
         .onAppear {
             if tabManager.isActive(tab) {
                 tab
@@ -127,21 +142,6 @@ struct TabItem: View {
                     )
             }
         }
-        .onTapGesture {
-            onTap()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                if !tab.isWebViewReady {
-                    tab
-                        .restoreTransientState(
-                            historyManager: historyManager,
-                            downloadManager: downloadManager,
-                            tabManager: tabManager,
-                            isPrivate: privacyMode.isPrivate
-                        )
-                }
-            }
-        }
-        .padding(8)
         .opacity(isDragging ? 0.0 : 1.0)
         .background(backgroundColor, in: .rect(cornerRadius: 10))
         .overlay(
@@ -165,21 +165,6 @@ struct TabItem: View {
                 )
                 : nil
         )
-        .contentShape(ConditionallyConcentricRectangle(cornerRadius: 10))
-        .onTapGesture {
-            onTap()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                if !tab.isWebViewReady {
-                    tab
-                        .restoreTransientState(
-                            historyManager: historyManager,
-                            downloadManager: downloadManager,
-                            tabManager: tabManager,
-                            isPrivate: privacyMode.isPrivate
-                        )
-                }
-            }
-        }
         .onHover { isHovering = $0 }
         .contextMenu { contextMenuItems }
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isDragging)
@@ -216,9 +201,9 @@ struct TabItem: View {
 
     @ViewBuilder
     private var actionButton: some View {
-        if isHovering, tab.type == .pinned, !tab.isWebViewReady {
+        if tab.type == .pinned, !tab.isWebViewReady {
             ActionButton(icon: "pin.slash", color: textColor, action: onPinToggle).help("Unpin Tab")
-        } else if isHovering {
+        } else {
             ActionButton(icon: "xmark", color: textColor, action: onClose).help("Close Tab")
         }
     }
@@ -292,9 +277,14 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .frame(width: 12, height: 12)
-                .foregroundColor(color)
-                .fontWeight(.semibold)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(isHovering ? .white : color.opacity(0.85))
+                .frame(width: 20, height: 20)
+                .background(
+                    Circle()
+                        .fill(isHovering ? Color.white.opacity(0.22) : Color.clear)
+                )
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }

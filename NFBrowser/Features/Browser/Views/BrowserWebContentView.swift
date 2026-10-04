@@ -65,7 +65,7 @@ struct BrowserWebContentView: View {
                 )
                 .id(tab.id)
             } else if let page = tab.browserPage {
-                BrowserPageView(page: page).id(tab.id)
+                BrowserPageView(page: page)
                     .overlay(alignment: .topLeading) {
                         if let triggerState = tab.passwordTriggerOverlayState {
                             PasswordAutofillTriggerView(overlay: triggerState, tab: tab)

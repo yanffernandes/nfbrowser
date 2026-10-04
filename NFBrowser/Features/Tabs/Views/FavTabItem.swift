@@ -64,18 +64,6 @@ struct FavTabItem: View {
                 .padding(2)
             }
         }
-        .onTapGesture {
-            onTap()
-            if !tab.isWebViewReady {
-                tab
-                    .restoreTransientState(
-                        historyManager: historyManager,
-                        downloadManager: downloadManager,
-                        tabManager: tabManager,
-                        isPrivate: privacyMode.isPrivate
-                    )
-            }
-        }
         .onAppear {
             if tabManager.isActive(tab) {
                 tab

@@ -226,12 +226,10 @@ class Tab: ObservableObject, Identifiable {
         self.isWebViewReady = false
         self.setupBrowserPageDelegate(for: page)
         self.syncBackgroundColorFromHex()
-        // Load after a short delay to ensure layout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            let url = if self.type != .normal { self.savedURL } else { self.url }
-            page.load(URLRequest(url: url ?? self.url))
-            self.isWebViewReady = true
-        }
+        // Load page immediately without artificial dispatch delay
+        let url = if self.type != .normal { self.savedURL } else { self.url }
+        page.load(URLRequest(url: url ?? self.url))
+        self.isWebViewReady = true
     }
 
     func stopMedia(completed: @escaping () -> Void) {
