@@ -50,6 +50,7 @@ struct LinkPreview: View {
         }
         .transition(.opacity)
         .animation(.easeOut(duration: 0.1), value: text)
+        .allowsHitTesting(false)
         .zIndex(900)
     }
 }

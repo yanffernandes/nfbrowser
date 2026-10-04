@@ -100,19 +100,25 @@ enum OraBrowserScripts {
         window.addEventListener('popstate', () => notifyChange(true));
         notifyChange(true);
 
+        let currentHoverUrl = '';
         function postHover(url) {
-            post('linkHover', url || "");
+            const normalized = url || '';
+            if (normalized === currentHoverUrl) {
+                return;
+            }
+            currentHoverUrl = normalized;
+            post('linkHover', normalized);
         }
 
         function onMouseOver(event) {
-            const anchor = event.target.closest && event.target.closest('a[href]');
+            const anchor = event.target && event.target.closest ? event.target.closest('a[href]') : null;
             postHover(anchor ? anchor.href : '');
         }
 
         function onMouseOut(event) {
             const related = event.relatedTarget;
-            if (!related || !event.currentTarget.contains(related)) {
-                postHover("");
+            if (!related) {
+                postHover('');
             }
         }
 
@@ -160,11 +166,18 @@ enum OraBrowserScripts {
             return null;
         }
 
+        let lastCaps = null;
         function caps() {
+            const next = !!findNextButton();
+            const prev = !!findPrevButton();
+            if (lastCaps && lastCaps.hasNext === next && lastCaps.hasPrevious === prev) {
+                return;
+            }
+            lastCaps = { hasNext: next, hasPrevious: prev };
             post({
                 type: 'caps',
-                hasNext: !!findNextButton(),
-                hasPrevious: !!findPrevButton()
+                hasNext: next,
+                hasPrevious: prev
             });
         }
 
@@ -217,7 +230,24 @@ enum OraBrowserScripts {
             caps();
         }
 
-        const observer = new MutationObserver(scan);
+        let scanPending = false;
+        function debouncedScan() {
+            if (scanPending) return;
+            scanPending = true;
+            if (typeof requestAnimationFrame !== 'undefined') {
+                requestAnimationFrame(() => {
+                    scanPending = false;
+                    scan();
+                });
+            } else {
+                setTimeout(() => {
+                    scanPending = false;
+                    scan();
+                }, 32);
+            }
+        }
+
+        const observer = new MutationObserver(debouncedScan);
         observer.observe(document.documentElement, { childList: true, subtree: true });
         scan();
 

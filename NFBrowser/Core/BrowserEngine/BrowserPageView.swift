@@ -8,6 +8,7 @@ final class BrowserPageHostView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         autoresizesSubviews = true
+        layer?.backgroundColor = NSColor.clear.cgColor
     }
 
     @available(*, unavailable)
@@ -74,8 +75,8 @@ final class BrowserPageHostView: NSView {
     private func configure(contentView: NSView) {
         contentView.wantsLayer = true
         contentView.autoresizingMask = [.width, .height]
-        contentView.layer?.isOpaque = true
-        contentView.layer?.drawsAsynchronously = true
+        // Do NOT force isOpaque or drawsAsynchronously on the hosted web view.
+        // Doing so causes hardware-accelerated video surfaces to drop frames or flash black during hover/compositing passes.
     }
 
     private func detachHostedContentView() {

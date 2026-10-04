@@ -86,6 +86,7 @@ struct BrowserWebContentView: View {
                     .overlay(alignment: .bottomLeading) {
                         if let hovered = tab.hoveredLinkURL, !hovered.isEmpty {
                             LinkPreview(text: hovered)
+                                .allowsHitTesting(false)
                         }
                     }
             } else {

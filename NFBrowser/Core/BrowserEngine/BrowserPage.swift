@@ -105,9 +105,12 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
         webView.allowsBackForwardNavigationGestures = configuration.allowsBackForwardNavigationGestures
         webView.wantsLayer = true
         webView.isInspectable = configuration.allowsInspectableDebugging
-        if let layer = webView.layer {
-            layer.isOpaque = true
-            layer.drawsAsynchronously = true
+        // Do NOT set drawsAsynchronously or isOpaque on WKWebView layer.
+        // WKWebView renders out-of-process via GPU process / Metal / CAContext.
+        // Setting drawsAsynchronously or isOpaque causes CoreAnimation to asynchronously
+        // clear the backing store with black frames during layer recomposition (e.g. video playback and hover).
+        if #available(macOS 12.0, *) {
+            webView.underPageBackgroundColor = .clear
         }
 
         BrowserPrivacyService.shared.prepareConfiguration(
