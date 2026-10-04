@@ -83,7 +83,7 @@ struct BrowserSplitView: View {
                     left: {
                         BrowserContentContainer {
                             if let activeTab = tabManager.activeTab {
-                                BrowserWebContentView(tab: activeTab)
+                                BrowserTabSplitContainer(activeTab: activeTab)
                             } else {
                                 HomeView()
                             }
@@ -101,7 +101,7 @@ struct BrowserSplitView: View {
                 .styling(visibleThickness: 1)
             } else if let activeTab = tabManager.activeTab {
                 BrowserContentContainer {
-                    BrowserWebContentView(tab: activeTab)
+                    BrowserTabSplitContainer(activeTab: activeTab)
                 }
             } else {
                 BrowserContentContainer {

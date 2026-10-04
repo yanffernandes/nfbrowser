@@ -240,6 +240,18 @@ struct URLBar: View {
                 )
 
                 URLBarButton(
+                    systemName: tabManager.splitTab == nil ? "rectangle.split.2x1" : "rectangle.split.2x1.fill",
+                    isEnabled: true,
+                    foregroundColor: tabManager.splitTab != nil ? Color.accentColor : buttonForegroundColor,
+                    action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            tabManager.toggleSplitWithNextTab()
+                        }
+                    }
+                )
+                .help(tabManager.splitTab != nil ? "Close Split View" : "Toggle Split View (Side-by-Side)")
+
+                URLBarButton(
                     systemName: "terminal",
                     isEnabled: true,
                     foregroundColor: buttonForegroundColor,

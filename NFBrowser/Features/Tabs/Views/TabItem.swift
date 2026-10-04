@@ -244,6 +244,21 @@ struct TabItem: View {
         }
         .disabled(!tab.isWebViewReady)
 
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                if tabManager.splitTab?.id == tab.id {
+                    tabManager.closeSplitTab()
+                } else {
+                    tabManager.openSplitTab(tab)
+                }
+            }
+        }) {
+            Label(
+                tabManager.splitTab?.id == tab.id ? "Close from Split View" : "Open in Split View",
+                systemImage: "rectangle.split.2x1"
+            )
+        }
+
         Divider()
 
         if availableContainers.count > 1 {

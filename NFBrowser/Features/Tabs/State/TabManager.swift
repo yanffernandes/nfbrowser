@@ -41,6 +41,7 @@ class TabManager: ObservableObject {
     @Published var activeContainer: TabContainer?
     @Published var activeTab: Tab?
     @Published var peekTab: Tab?
+    @Published var splitTab: Tab?
     weak var historyManager: HistoryManager?
     weak var downloadManager: DownloadManager?
     let modelContainer: ModelContainer
@@ -140,6 +141,33 @@ class TabManager: ObservableObject {
     func moveTabToContainer(_ tab: Tab, toContainer: TabContainer) {
         tab.container = toContainer
         try? modelContext.save()
+    }
+
+    func openSplitTab(_ tab: Tab) {
+        guard tab.id != activeTab?.id else { return }
+        splitTab = tab
+    }
+
+    func closeSplitTab() {
+        splitTab = nil
+    }
+
+    func swapSplitTabs() {
+        guard let currentSplit = splitTab, let currentActive = activeTab else { return }
+        splitTab = currentActive
+        activateTab(currentSplit)
+    }
+
+    func toggleSplitWithNextTab() {
+        if splitTab != nil {
+            splitTab = nil
+            return
+        }
+        guard let currentTab = activeTab, let container = activeContainer else { return }
+        let otherTabs = container.tabs.filter { $0.id != currentTab.id }
+        if let nextTab = otherTabs.first {
+            openSplitTab(nextTab)
+        }
     }
 
     private func initializeActiveContainerAndTab() {
@@ -487,6 +515,12 @@ class TabManager: ObservableObject {
             }
         } else {
             self.activeTab = activeTab
+        }
+        if self.splitTab?.id == tab.id {
+            self.splitTab = nil
+        }
+        if self.peekTab?.id == tab.id {
+            self.peekTab = nil
         }
         if activeTab?.isWebViewReady != nil, let historyManager = tab.historyManager,
            let downloadManager = tab.downloadManager, let tabManager = tab.tabManager

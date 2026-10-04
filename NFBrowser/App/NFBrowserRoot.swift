@@ -213,6 +213,16 @@ typealias OraRoot = NFBrowserRoot
                         tabManager.restoreLastTab()
                     }
                 }
+                NotificationCenter.default.addObserver(forName: .toggleSplitView, object: nil, queue: .main) { note in
+                    Task { @MainActor in
+                        if let source = note.object as? NSWindow {
+                            guard source === window ?? NSApp.keyWindow else { return }
+                        }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            tabManager.toggleSplitWithNextTab()
+                        }
+                    }
+                }
                 keyModifierListener.registerKeyDownHandler { event in
                     let chars = event.charactersIgnoringModifiers?.lowercased()
                     guard chars == "z" else { return false }

@@ -154,6 +154,11 @@ typealias OraCommands = NFBrowserCommands
         }
 
         CommandMenu("Tabs") {
+            Button("Toggle Split View") {
+                NotificationCenter.default.post(name: .toggleSplitView, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("s", modifiers: [.command, .option])
+
             Button("Reopen Closed Tab") {
                 NotificationCenter.default.post(name: .restoreLastTab, object: nil)
             }
