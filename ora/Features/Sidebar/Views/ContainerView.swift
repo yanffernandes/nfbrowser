@@ -20,17 +20,24 @@ struct ContainerView: View {
                 SidebarURLDisplay()
             }
             if !privacyMode.isPrivate {
-                FavTabsGrid(
-                    tabs: favoriteTabs,
-                    draggedItem: $draggedItem,
-                    onDrag: dragTab,
-                    selectedContainerId: selectedContainer,
-                    onSelect: selectTab,
-                    onFavoriteToggle: toggleFavorite,
-                    onClose: removeTab,
-                    onDuplicate: duplicateTab,
-                    onMoveToContainer: moveTab
-                )
+                VStack(alignment: .leading, spacing: 8) {
+                    SidebarTabSectionHeader(
+                        title: "Favorites",
+                        count: favoriteTabs.count,
+                        systemImage: "star.fill"
+                    )
+                    FavTabsGrid(
+                        tabs: favoriteTabs,
+                        draggedItem: $draggedItem,
+                        onDrag: dragTab,
+                        selectedContainerId: selectedContainer,
+                        onSelect: selectTab,
+                        onFavoriteToggle: toggleFavorite,
+                        onClose: removeTab,
+                        onDuplicate: duplicateTab,
+                        onMoveToContainer: moveTab
+                    )
+                }
             } else {
                 VStack(alignment: .center, spacing: 8) {
                     Text("Private Browsing")
@@ -68,6 +75,11 @@ struct ContainerView: View {
                         )
                         Divider()
                     }
+                    SidebarTabSectionHeader(
+                        title: "Open tabs",
+                        count: normalTabs.count,
+                        systemImage: "rectangle.stack"
+                    )
                     NormalTabsList(
                         tabs: normalTabs,
                         draggedItem: $draggedItem,
@@ -88,8 +100,8 @@ struct ContainerView: View {
 
     private var favoriteTabs: [Tab] {
         return container.tabs
-            .sorted(by: { $0.order > $1.order })
             .filter { $0.type == .fav }
+            .sorted(by: { $0.order > $1.order })
     }
 
     private var pinnedTabs: [Tab] {
@@ -134,7 +146,7 @@ struct ContainerView: View {
                 toContainer: newContainer
             )
         toastManager.show(
-            "Moved to \(newContainer.emoji) \(newContainer.name)",
+            "Moved to \(newContainer.name)",
             icon: .system("arrow.right.arrow.left")
         )
     }
@@ -159,19 +171,43 @@ struct ContainerView: View {
     }
 }
 
+struct SidebarTabSectionHeader: View {
+    let title: String
+    let count: Int
+    let systemImage: String
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .semibold))
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+            Spacer(minLength: 8)
+            Text(count.formatted())
+                .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(theme.mutedBackground, in: Capsule())
+        }
+        .foregroundStyle(theme.mutedForeground)
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct OraWindowDragGesture: ViewModifier {
     @Binding var isDragging: Bool
 
     func body(content: Content) -> some View {
-        Group {
-            if isDragging {
-                content
+        if isDragging {
+            content
+        } else {
+            if #available(macOS 15.0, *) {
+                content.gesture(WindowDragGesture())
             } else {
-                if #available(macOS 15.0, *) {
-                    content.gesture(WindowDragGesture())
-                } else {
-                    content.gesture(BackportWindowDragGesture(isDragging: $isDragging))
-                }
+                content.gesture(BackportWindowDragGesture(isDragging: $isDragging))
             }
         }
     }

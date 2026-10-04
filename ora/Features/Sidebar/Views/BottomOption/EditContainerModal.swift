@@ -8,8 +8,7 @@ struct EditContainerModal: View {
     @EnvironmentObject var tabManager: TabManager
 
     @State private var name: String = ""
-    @State private var emoji: String = ""
-    @State private var isEmojiPickerOpen = false
+    @State private var iconSystemName: String = ""
 
     var body: some View {
         // Outer frame
@@ -58,10 +57,8 @@ struct EditContainerModal: View {
     private var containerForm: some View {
         ContainerForm(
             name: $name,
-            emoji: $emoji,
-            isEmojiPickerOpen: $isEmojiPickerOpen,
-            onSubmit: saveContainer,
-            defaultEmoji: ContainerConstants.defaultEmoji
+            iconSystemName: $iconSystemName,
+            onSubmit: saveContainer
         )
     }
 
@@ -75,14 +72,13 @@ struct EditContainerModal: View {
 
     private func setupInitialValues() {
         name = container.name
-        emoji = container.emoji
+        iconSystemName = container.systemImage
     }
 
     private func saveContainer() {
         guard !name.isEmpty else { return }
 
-        let finalEmoji = emoji.isEmpty ? ContainerConstants.defaultEmoji : emoji
-        tabManager.renameContainer(container, name: name, emoji: finalEmoji)
+        tabManager.renameContainer(container, name: name, emoji: "", iconSystemName: iconSystemName)
         dismiss()
     }
 }

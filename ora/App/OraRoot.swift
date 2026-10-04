@@ -22,6 +22,7 @@ struct OraRoot: View {
     @StateObject private var privacyMode: PrivacyMode
     @StateObject private var sidebarManager = SidebarManager()
     @StateObject private var toolbarManager = ToolbarManager()
+    @StateObject private var browserAgentTerminal = BrowserAgentTerminalManager()
     @StateObject private var dialogManager = DialogManager()
     private let toastManager = ToastManager.shared
 
@@ -99,12 +100,22 @@ struct OraRoot: View {
             .environmentObject(privacyMode)
             .environmentObject(sidebarManager)
             .environmentObject(toolbarManager)
+            .environmentObject(browserAgentTerminal)
             .environmentObject(dialogManager)
             .environmentObject(toastManager)
             .dialogs(manager: dialogManager)
             .modelContext(tabContext)
             .modelContext(historyContext)
             .modelContext(downloadContext)
+            .overlay {
+                ArcImportController(
+                    tabManager: tabManager,
+                    historyManager: historyManager,
+                    downloadManager: downloadManager,
+                    window: window
+                )
+                .accessibilityHidden(true)
+            }
             .withTheme()
             .enableInjection()
             .onAppear {
@@ -156,9 +167,9 @@ struct OraRoot: View {
                         return
                     }
                     dialogManager.confirm(
-                        title: "Quit Ora?",
+                        title: "Quit NF Browser?",
                         message: "Are you sure you want to quit?",
-                        iconImage: Image("OraColorLogo"),
+                        iconImage: Image("NFLabColorLogo"),
                         confirmLabel: "Quit",
                         variant: .destructive,
                         onConfirm: { NSApp.reply(toApplicationShouldTerminate: true) },
@@ -194,7 +205,9 @@ struct OraRoot: View {
                 NotificationCenter.default.addObserver(forName: .findInPage, object: nil, queue: .main) { note in
                     Task { @MainActor in
                         guard note.object as? NSWindow === window ?? NSApp.keyWindow else { return }
-                        if let activeTab = tabManager.activeTab { appState.showFinderIn = activeTab.id }
+                        if let activeTab = tabManager.activeTab {
+                            appState.showFinderIn = activeTab.id
+                        }
                     }
                 }
                 NotificationCenter.default.addObserver(forName: .toggleFullURL, object: nil, queue: .main) { note in
@@ -228,7 +241,9 @@ struct OraRoot: View {
                 NotificationCenter.default.addObserver(forName: .togglePinTab, object: nil, queue: .main) { note in
                     Task { @MainActor in
                         guard note.object as? NSWindow === window ?? NSApp.keyWindow else { return }
-                        if let tab = tabManager.activeTab { tabManager.togglePinTab(tab) }
+                        if let tab = tabManager.activeTab {
+                            tabManager.togglePinTab(tab)
+                        }
                     }
                 }
                 NotificationCenter.default.addObserver(forName: .nextTab, object: nil, queue: .main) { note in

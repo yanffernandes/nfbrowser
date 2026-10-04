@@ -6,10 +6,12 @@ import SwiftUI
 final class FaviconService: ObservableObject {
     static let shared = FaviconService()
     private var cache: [String: NSImage] = [:]
+    private var imageDataCache: [String: Data] = [:]
     private var colorCache: [String: Color] = [:]
     private var sourceURLCache: [String: URL] = [:]
     private var isFetching: Set<String> = []
     private var pendingCompletions: [String: [(NSImage?) -> Void]] = [:]
+    private var pendingFileWrites: [String: [(URL, (URL?, Bool) -> Void)]] = [:]
 
     func getFavicon(for searchURL: String) -> NSImage? {
         guard let domain = extractDomain(from: searchURL) else { return nil }
@@ -109,14 +111,15 @@ final class FaviconService: ObservableObject {
                 self.completeFetch(
                     for: domain,
                     favicon: payload?.image,
-                    sourceURL: payload?.sourceURL
+                    sourceURL: payload?.sourceURL,
+                    imageData: payload?.data
                 )
             }
         }
     }
 
     @MainActor
-    private func completeFetch(for domain: String, favicon: NSImage?, sourceURL: URL?) {
+    private func completeFetch(for domain: String, favicon: NSImage?, sourceURL: URL?, imageData: Data?) {
         if let favicon {
             cache[domain] = favicon
             colorCache[domain] = Color(favicon.averageColor())
@@ -125,11 +128,28 @@ final class FaviconService: ObservableObject {
             }
             objectWillChange.send()
         }
+        if let imageData {
+            imageDataCache[domain] = imageData
+        }
 
         isFetching.remove(domain)
         let completions = pendingCompletions.removeValue(forKey: domain) ?? []
         for completion in completions {
             completion(favicon)
+        }
+
+        let fileWrites = pendingFileWrites.removeValue(forKey: domain) ?? []
+        for (url, completion) in fileWrites {
+            guard let imageData = imageDataCache[domain] else {
+                completion(nil, false)
+                continue
+            }
+            do {
+                try imageData.write(to: url, options: .atomic)
+                completion(sourceURL ?? faviconURL(for: domain), true)
+            } catch {
+                completion(nil, false)
+            }
         }
     }
 
@@ -155,9 +175,7 @@ final class FaviconService: ObservableObject {
         completion: @escaping (URL?, Bool) -> Void
     ) {
         let normalizedDomain = normalizeDomain(domain)
-        if let cachedFavicon = cache[normalizedDomain],
-           let data = cachedFavicon.tiffRepresentation
-        {
+        if let data = imageDataCache[normalizedDomain] ?? pngData(from: cache[normalizedDomain]) {
             do {
                 try data.write(to: saveURL, options: .atomic)
                 completion(faviconURL(for: normalizedDomain), true)
@@ -167,29 +185,35 @@ final class FaviconService: ObservableObject {
             return
         }
 
+        pendingFileWrites[normalizedDomain, default: []].append((saveURL, completion))
+        guard !isFetching.contains(normalizedDomain) else { return }
+        isFetching.insert(normalizedDomain)
+
         Task(priority: .utility) { [weak self] in
             guard let self else {
-                completion(nil, false)
                 return
             }
 
             let payload = await self.fetchFaviconPayload(for: normalizedDomain)
             await MainActor.run {
-                guard let payload else {
-                    completion(nil, false)
-                    return
-                }
-
-                self.completeFetch(for: normalizedDomain, favicon: payload.image, sourceURL: payload.sourceURL)
-
-                do {
-                    try payload.data.write(to: saveURL, options: .atomic)
-                    completion(payload.sourceURL, true)
-                } catch {
-                    completion(nil, false)
-                }
+                self.completeFetch(
+                    for: normalizedDomain,
+                    favicon: payload?.image,
+                    sourceURL: payload?.sourceURL,
+                    imageData: payload?.data
+                )
             }
         }
+    }
+
+    private func pngData(from image: NSImage?) -> Data? {
+        guard let image,
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff)
+        else {
+            return nil
+        }
+        return bitmap.representation(using: .png, properties: [:])
     }
 }
 

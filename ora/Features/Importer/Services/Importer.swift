@@ -11,6 +11,54 @@ struct Sidebar: Decodable {
     let containers: [Container]
 }
 
+private struct ArcCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int?
+
+    init(_ stringValue: String) {
+        self.stringValue = stringValue
+        intValue = nil
+    }
+
+    init?(stringValue: String) {
+        self.init(stringValue)
+    }
+
+    init?(intValue: Int) {
+        stringValue = String(intValue)
+        self.intValue = intValue
+    }
+}
+
+struct ArcProfileReference: Decodable {
+    let directoryBasename: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ArcCodingKey.self)
+        directoryBasename = Self.findDirectoryBasename(in: container)
+    }
+
+    private static func findDirectoryBasename(
+        in container: KeyedDecodingContainer<ArcCodingKey>
+    ) -> String? {
+        if let name = try? container.decode(String.self, forKey: ArcCodingKey("directoryBasename")) {
+            return name
+        }
+        if (try? container.decode(Bool.self, forKey: ArcCodingKey("default"))) == true {
+            return "Default"
+        }
+        for key in container.allKeys {
+            guard let nested = try? container.nestedContainer(keyedBy: ArcCodingKey.self, forKey: key),
+                  let name = findDirectoryBasename(in: nested)
+            else {
+                continue
+            }
+            return name
+        }
+        return nil
+    }
+}
+
 struct Container: Decodable {
     let global: Global?
     let spaces: [SpaceItem]?
@@ -44,6 +92,7 @@ enum SpaceItem: Decodable {
         let title: String?
         let id: String
         let containerIDs: [String]
+        let profile: ArcProfileReference?
     }
 
     struct IconWrapper: Decodable {
@@ -54,6 +103,7 @@ enum SpaceItem: Decodable {
         // swiftlint:disable:next identifier_name
         let emoji_v2: String?
         let emoji: Int?
+        let icon: String?
     }
 
     init(from decoder: Decoder) throws {
@@ -120,15 +170,9 @@ struct ItemContainerData: Decodable {
 
     struct ContainerType: Decodable {
         let spaceItems: [String: String]?
-        let topApps: [String: TopApp]?
-
-        struct TopApp: Decodable {
-            let `default`: [String: AnyCodable]?
-        }
+        let topApps: ArcProfileReference?
     }
 }
-
-struct AnyCodable: Decodable {}
 
 enum TopAppsContainerID: Decodable {
     case id(String)
@@ -159,14 +203,17 @@ func getRoot() -> Root? {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(Root.self, from: data)
     } catch {
-        logger.error("Decoding failed: \(error.localizedDescription)")
+        logger.error("Decoding failed: \(String(describing: error), privacy: .public)")
         return nil
     }
 }
 
 struct CleanSpace {
+    var sourceID: String
     var emoji: String?
+    var icon: String?
     var title: String?
+    var profileDirectoryBasename: String?
     var containerIDs: Set<String>  = []
     var container: TabContainer?
 }
@@ -182,12 +229,16 @@ struct Result {
     var cleanSpaces: [CleanSpace]
     var cleanTabs: [CleanTab]
     var favs: Set<String> = []
+    var parentIDs: [String: String] = [:]
+    var favoriteProfileByContainerID: [String: String] = [:]
 }
 
 func inspectItems(_ root: Root) -> Result {
     var cleanSpaces: [CleanSpace] = []
     var cleanTabs: [CleanTab] = []
     var topIds: [String] = []
+    var parentIDs: [String: String] = [:]
+    var favoriteProfileByContainerID: [String: String] = [:]
 
     for container in root.sidebar.containers {
         if let spaces = container.spaces {
@@ -195,8 +246,11 @@ func inspectItems(_ root: Root) -> Result {
                 switch item {
                 case let .custom(customInfo):
                     var cleanSpace = CleanSpace(
+                        sourceID: customInfo.id,
                         emoji: customInfo.customInfo.iconType.emoji_v2,
+                        icon: customInfo.customInfo.iconType.icon,
                         title: customInfo.title,
+                        profileDirectoryBasename: customInfo.profile?.directoryBasename,
                         containerIDs: []
                     )
                     for cid in customInfo.containerIDs {
@@ -227,8 +281,16 @@ func inspectItems(_ root: Root) -> Result {
                     logger.debug("ID: \(id)")
                 case let .object(itemObject):
                     objectCount += 1
+                    if let parentID = itemObject.parentID {
+                        parentIDs[itemObject.id] = parentID
+                    }
 
                     if let data = itemObject.data {
+                        if let profileDirectoryBasename = data.itemContainer?.containerType?.topApps?
+                            .directoryBasename
+                        {
+                            favoriteProfileByContainerID[itemObject.id] = profileDirectoryBasename
+                        }
                         if let tab = data.tab {
                             if let parentID = itemObject.parentID, let urlString = tab.savedURL {
                                 cleanTabs.append(
@@ -261,7 +323,9 @@ func inspectItems(_ root: Root) -> Result {
     }
     var result = Result(
         cleanSpaces: cleanSpaces,
-        cleanTabs: cleanTabs
+        cleanTabs: cleanTabs,
+        parentIDs: parentIDs,
+        favoriteProfileByContainerID: favoriteProfileByContainerID
     )
     for tid in topIds {
         result.favs.insert(tid)

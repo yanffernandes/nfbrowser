@@ -86,8 +86,7 @@ struct DownloadHistoryRow: View {
 
     private var fileIconView: some View {
         Image(nsImage: nativeFileIcon)
-            .resizable()
-            .aspectRatio(contentMode: .fit)
+            .resizable().scaledToFit()
             .frame(width: 32, height: 32)
     }
 
@@ -181,7 +180,7 @@ struct DownloadHistoryRow: View {
                     downloadManager.deleteDownload(download)
                 }
             } label: {
-                Label("Remove from Ora", systemImage: "minus.circle")
+                Label("Remove from NF Browser", systemImage: "minus.circle")
             }
         }
     }

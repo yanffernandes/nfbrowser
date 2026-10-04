@@ -263,7 +263,6 @@ final class PasswordManagerService: ObservableObject {
                 kSecAttrService as String: serviceName,
                 kSecAttrAccount as String: metadata.id,
                 kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-                kSecAttrSynchronizable as String: kCFBooleanTrue as Any,
                 kSecAttrGeneric as String: encode(metadata: metadata),
                 kSecAttrLabel as String: normalizedHost,
                 kSecAttrComment as String: trimmedUsername,
@@ -640,6 +639,96 @@ final class PasswordManagerService: ObservableObject {
     }
 }
 
+struct PasswordImportResult {
+    let imported: Int
+    let skipped: Int
+    let failed: Int
+    let firstFailureStatus: OSStatus?
+}
+
+extension PasswordManagerService {
+    func importCredentials(
+        _ credentials: [PasswordImportRecord],
+        containerID: UUID
+    ) -> PasswordImportResult {
+        refresh()
+
+        let existingKeyList: [String] = scopedEntries(for: containerID, includeLegacyFallback: true)
+            .compactMap { entry in
+                guard let origin = entry.origin else { return nil }
+                return "\(origin)|\(entry.username.lowercased())"
+            }
+        var existingKeys = Set(existingKeyList)
+        var imported = 0
+        var skipped = 0
+        var failed = 0
+        var firstFailureStatus: OSStatus?
+
+        for credential in credentials {
+            guard let origin = Self.normalizedOrigin(from: credential.url),
+                  let host = Self.normalizedHost(from: credential.url)
+            else {
+                failed += 1
+                continue
+            }
+
+            let username = credential.username.trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = "\(origin)|\(username.lowercased())"
+            guard existingKeys.insert(key).inserted else {
+                skipped += 1
+                continue
+            }
+
+            let createdAt = credential.createdAt
+            let updatedAt = credential.lastUsedAt ?? createdAt
+            let metadata = SavedPasswordMetadata(
+                id: UUID().uuidString,
+                origin: origin,
+                host: host,
+                username: username,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastUsedAt: credential.lastUsedAt,
+                containerID: containerID
+            )
+
+            do {
+                let item: [String: Any] = try [
+                    kSecClass as String: kSecClassGenericPassword,
+                    kSecAttrService as String: serviceName,
+                    kSecAttrAccount as String: metadata.id,
+                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+                    kSecAttrGeneric as String: encode(metadata: metadata),
+                    kSecAttrLabel as String: host,
+                    kSecAttrComment as String: username,
+                    kSecValueData as String: Data(credential.password.utf8)
+                ]
+                let status = SecItemAdd(item as CFDictionary, nil)
+                if status == errSecSuccess {
+                    imported += 1
+                } else if status == errSecDuplicateItem {
+                    skipped += 1
+                } else {
+                    existingKeys.remove(key)
+                    failed += 1
+                    firstFailureStatus = firstFailureStatus ?? status
+                }
+            } catch {
+                existingKeys.remove(key)
+                failed += 1
+            }
+        }
+
+        refresh()
+        return PasswordImportResult(
+            imported: imported,
+            skipped: skipped,
+            failed: failed,
+            firstFailureStatus: firstFailureStatus
+        )
+    }
+}
+
 enum PasswordManagerError: LocalizedError {
     case invalidStoredPassword
     case invalidCredentialOrigin
@@ -648,9 +737,9 @@ enum PasswordManagerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidStoredPassword:
-            return "Ora couldn't decode the stored password."
+            return "NF Browser couldn't decode the stored password."
         case .invalidCredentialOrigin:
-            return "Ora can only save passwords for web origins."
+            return "NF Browser can only save passwords for web origins."
         case let .keychainStatus(status):
             if let message = SecCopyErrorMessageString(status, nil) as String? {
                 return message

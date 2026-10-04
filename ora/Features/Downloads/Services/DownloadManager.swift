@@ -240,7 +240,7 @@ class DownloadManager: ObservableObject {
         }
     }
 
-    private func refreshRecentDownloads() {
+    func refreshRecentDownloads() {
         loadRecentDownloads()
     }
 

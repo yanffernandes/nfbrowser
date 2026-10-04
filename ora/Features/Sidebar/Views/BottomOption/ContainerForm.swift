@@ -2,63 +2,61 @@ import SwiftUI
 
 struct ContainerForm: View {
     @Binding var name: String
-    @Binding var emoji: String
-    @Binding var isEmojiPickerOpen: Bool
+    @Binding var iconSystemName: String
 
     let onSubmit: () -> Void
-    let defaultEmoji: String
 
     @Environment(\.theme) private var theme
-    @State private var isEmojiPickerHovering = false
     @FocusState private var isNameFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
-            emojiPickerButton
+            iconButton
             nameTextField
         }
         .onAppear { isNameFocused = true }
     }
 
-    private var emojiPickerButton: some View {
-        Button(action: {
-            isEmojiPickerOpen.toggle()
-        }) {
-            ZStack {
-                RoundedRectangle(cornerRadius: ContainerConstants.UI.cornerRadius, style: .continuous)
-                    .stroke(
-                        emoji.isEmpty ? theme.border : theme.border,
-                        style: emoji.isEmpty
-                            ? StrokeStyle(lineWidth: 1, dash: [5])
-                            : StrokeStyle(lineWidth: 1)
-                    )
-                    .animation(
-                        .easeOut(duration: ContainerConstants.Animation.emojiPickerDuration),
-                        value: emoji.isEmpty
-                    )
-                    .background(isEmojiPickerHovering ? theme.mutedBackground.opacity(0.8)
-                        : theme.mutedBackground)
-                    .cornerRadius(ContainerConstants.UI.cornerRadius)
-
-                if emoji.isEmpty {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12))
-                } else {
-                    Text(emoji)
-                        .font(.system(size: 12))
+    private var iconButton: some View {
+        Menu {
+            ForEach(SpaceIcon.groups) { group in
+                Section(group.title) {
+                    ForEach(group.icons) { option in
+                        Button {
+                            iconSystemName = option.name
+                        } label: {
+                            HStack {
+                                Label(option.label, systemImage: option.name)
+                                if selectedIcon == option.name {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
                 }
             }
+        } label: {
+            Image(systemName: selectedIcon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(theme.mutedForeground)
+                .frame(width: ContainerConstants.UI.emojiButtonSize, height: ContainerConstants.UI.emojiButtonSize)
+                .background(
+                    theme.mutedBackground,
+                    in: RoundedRectangle(cornerRadius: ContainerConstants.UI.cornerRadius)
+                )
         }
-        .popover(isPresented: $isEmojiPickerOpen, arrowEdge: .bottom) {
-            EmojiPickerView(onSelect: { selectedEmoji in
-                emoji = selectedEmoji
-                isEmojiPickerOpen = false
-            })
-        }
-        .frame(width: ContainerConstants.UI.emojiButtonSize, height: ContainerConstants.UI.emojiButtonSize)
-        .cornerRadius(ContainerConstants.UI.cornerRadius)
         .buttonStyle(.plain)
-        .onHover { isEmojiPickerHovering = $0 }
+        .help("Choose space icon")
+        .accessibilityLabel("Choose space icon")
+        .menuStyle(.borderlessButton)
+    }
+
+    private var selectedIcon: String {
+        if SpaceIcon.options.contains(where: { $0.name == iconSystemName }) {
+            return iconSystemName
+        }
+        let mappedIcon = SpaceIcon.systemImage(for: name)
+        return SpaceIcon.options.contains(where: { $0.name == mappedIcon }) ? mappedIcon : "square.grid.2x2.fill"
     }
 
     private var nameTextField: some View {

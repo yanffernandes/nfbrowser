@@ -11,3 +11,10 @@ This repository includes third-party source code and other third-party component
 - Included license text: `Vendor/SplitView/LICENSE`
 
 The files in `ora/Shared/Layout/SplitView` were copied from the upstream `SplitView` project and may include local modifications.
+
+## SwiftTerm
+
+- Upstream project: [migueldeicaza/SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)
+- Version: 1.20.0
+- License: MIT
+- License text: `Vendor/SwiftTerm/LICENSE`

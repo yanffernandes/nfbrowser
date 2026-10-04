@@ -23,13 +23,23 @@ struct SpacesSettingsView: View {
         containers.first { $0.id == selectedContainerId } ?? containers.first
     }
 
+    private var orderedContainers: [TabContainer] {
+        containers.sorted {
+            if $0.sidebarSortOrder == $1.sidebarSortOrder {
+                return $0.createdAt < $1.createdAt
+            }
+            return $0.sidebarSortOrder < $1.sidebarSortOrder
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Left list
             List(selection: $selectedContainerId) {
-                ForEach(containers) { container in
+                ForEach(orderedContainers) { container in
                     HStack {
-                        Text(container.emoji)
+                        Image(systemName: container.systemImage)
+                            .frame(width: 18)
                         Text(container.name)
                     }
                     .tag(container.id)
@@ -189,7 +199,9 @@ struct SpacesSettingsView: View {
             .clipped()
         }
         .onAppear {
-            if selectedContainerId == nil { selectedContainerId = containers.first?.id }
+            if selectedContainerId == nil {
+                selectedContainerId = containers.first?.id
+            }
             Task {
                 for container in containers {
                     await AdBlockService.shared.registerSpace(containerId: container.id)

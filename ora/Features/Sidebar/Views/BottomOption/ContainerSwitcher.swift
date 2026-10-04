@@ -23,7 +23,7 @@ struct ContainerSwitcher: View {
             let isCompact = totalWidth > availableWidth
 
             HStack(alignment: .center, spacing: isCompact ? 4 : 2) {
-                ForEach(containers, id: \.id) { container in
+                ForEach(orderedContainers, id: \.id) { container in
                     containerButton(for: container, isCompact: isCompact)
                 }
             }
@@ -34,43 +34,46 @@ struct ContainerSwitcher: View {
         .frame(height: 28)
     }
 
+    private var orderedContainers: [TabContainer] {
+        containers.sorted {
+            if $0.sidebarSortOrder == $1.sidebarSortOrder {
+                return $0.createdAt < $1.createdAt
+            }
+            return $0.sidebarSortOrder < $1.sidebarSortOrder
+        }
+    }
+
     @ViewBuilder
     private func containerButton(for container: TabContainer, isCompact: Bool)
         -> some View
     {
         let isActive = tabManager.activeContainer?.id == container.id
         let isHovered = hoveredContainer == container.id
-        let displayEmoji = isCompact && !isActive ? (isHovered ? container.emoji : ContainerConstants.defaultEmoji) :
-            container.emoji
         let buttonSize = isCompact && !isActive ?
             (isHovered ? ContainerConstants.UI.compactButtonWidth + 4 : ContainerConstants.UI.compactButtonWidth) :
             ContainerConstants.UI.normalButtonWidth
-        let fontSize: CGFloat = isCompact && !isActive ?
-            (isHovered ? (container.emoji == ContainerConstants.defaultEmoji ? 24 : 12) : 12
-            ) :
-            (container.emoji == ContainerConstants.defaultEmoji ? 24 : 12)
 
         Button(action: {
             onContainerSelected(container)
         }) {
-            HStack {
-                Text(displayEmoji)
-                    .font(.system(size: fontSize))
-                    .foregroundColor(displayEmoji == ContainerConstants.defaultEmoji ? .primary : .secondary)
-            }
-            .frame(width: buttonSize, height: buttonSize)
-            .grayscale(!isActive && !isHovered ? 0.5 : 0)
-            .opacity(!isActive ? 0.5 : 1)
-            .background(
-                !isCompact && isHovered
-                    ? theme.invertedSolidWindowBackgroundColor.opacity(0.1)
-                    : isActive
-                    ? theme.invertedSolidWindowBackgroundColor.opacity(0.15)
-                    : .clear
-            )
-            .cornerRadius(8)
+            Image(systemName: container.systemImage)
+                .font(.system(size: isActive ? 14 : 12, weight: isActive ? .semibold : .medium))
+                .foregroundStyle(isActive ? Color.primary : Color.secondary)
+                .frame(width: buttonSize, height: buttonSize)
+                .grayscale(!isActive && !isHovered ? 0.5 : 0)
+                .opacity(!isActive ? 0.5 : 1)
+                .background(
+                    !isCompact && isHovered
+                        ? theme.invertedSolidWindowBackgroundColor.opacity(0.1)
+                        : isActive
+                        ? theme.invertedSolidWindowBackgroundColor.opacity(0.15)
+                        : .clear
+                )
+                .cornerRadius(8)
         }
         .buttonStyle(.plain)
+        .help(container.name)
+        .accessibilityLabel(container.name)
         .animation(.easeOut(duration: 0.15), value: isActive || isHovered)
         .onHover { isHovering in
             withAnimation(.easeOut(duration: 0.15)) {

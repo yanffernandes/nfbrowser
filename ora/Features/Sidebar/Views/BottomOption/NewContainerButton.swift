@@ -33,8 +33,7 @@ private struct NewContainerDialog: View {
     let dismiss: () -> Void
 
     @State private var name = ""
-    @State private var emoji = ""
-    @State private var isEmojiPickerOpen = false
+    @State private var iconSystemName = ""
 
     @Environment(\.theme) private var theme
     @EnvironmentObject var tabManager: TabManager
@@ -54,16 +53,14 @@ private struct NewContainerDialog: View {
 
                 // Form section
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Choose a name and icon")
+                    Text("Choose a name")
                         .font(.system(size: 13))
                         .foregroundColor(theme.mutedForeground)
 
                     ContainerForm(
                         name: $name,
-                        emoji: $emoji,
-                        isEmojiPickerOpen: $isEmojiPickerOpen,
-                        onSubmit: createContainer,
-                        defaultEmoji: ContainerConstants.defaultEmoji
+                        iconSystemName: $iconSystemName,
+                        onSubmit: createContainer
                     )
 
                     // Info text
@@ -110,8 +107,7 @@ private struct NewContainerDialog: View {
 
     private func createContainer() {
         guard !name.isEmpty else { return }
-        let finalEmoji = emoji.isEmpty ? ContainerConstants.defaultEmoji : emoji
-        tabManager.createContainer(name: name, emoji: finalEmoji)
+        tabManager.createContainer(name: name, emoji: "", iconSystemName: iconSystemName)
         dismiss()
     }
 }

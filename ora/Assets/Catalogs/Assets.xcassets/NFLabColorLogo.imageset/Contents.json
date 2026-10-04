@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "NFLabFavicon.svg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

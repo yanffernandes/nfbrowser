@@ -103,8 +103,8 @@ struct FavTabItem: View {
                 : isSelected
                 ? RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(
-                    theme.invertedSolidWindowBackgroundColor,
-                    lineWidth: 1
+                    Color.accentColor,
+                    lineWidth: 2
                 )
                 : nil
         )
@@ -121,6 +121,7 @@ struct FavTabItem: View {
             }
         }
         .onHover { isHovering = $0 }
+        .help(tab.title)
         .contextMenu {
             Button(action: onFavoriteToggle) {
                 Label("Remove from Favorites", systemImage: "star.slash")

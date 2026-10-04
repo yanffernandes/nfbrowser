@@ -6,6 +6,7 @@ struct BrowserSplitView: View {
     @EnvironmentObject var toolbarManager: ToolbarManager
     @EnvironmentObject var sidebarManager: SidebarManager
     @EnvironmentObject var toastManager: ToastManager
+    @EnvironmentObject private var browserAgentTerminal: BrowserAgentTerminalManager
 
     private var targetSide: SplitSide {
         sidebarManager.sidebarPosition == .primary ? .primary : .secondary
@@ -77,7 +78,25 @@ struct BrowserSplitView: View {
 
     private func contentView() -> some View {
         Group {
-            if let activeTab = tabManager.activeTab {
+            if browserAgentTerminal.isPanelVisible {
+                HSplit(
+                    left: {
+                        BrowserContentContainer {
+                            if let activeTab = tabManager.activeTab {
+                                BrowserWebContentView(tab: activeTab)
+                            } else {
+                                HomeView()
+                            }
+                        }
+                    },
+                    right: {
+                        BrowserAgentTerminalPanel()
+                    }
+                )
+                .fraction(browserAgentTerminal.contentFraction)
+                .constraints(minPFraction: 0.42, minSFraction: 0.24, priority: .primary)
+                .styling(visibleThickness: 1)
+            } else if let activeTab = tabManager.activeTab {
                 BrowserContentContainer {
                     BrowserWebContentView(tab: activeTab)
                 }

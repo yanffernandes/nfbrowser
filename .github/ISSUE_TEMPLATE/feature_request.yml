@@ -1,11 +1,11 @@
 name: 💡 Feature Request
-description: Suggest a new idea or improvement for Ora Browser
+description: Suggest a new idea or improvement for NF Browser
 labels: ["enhancement", "triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for contributing to Ora’s future!  
+        Thanks for contributing to NF Browser!
         Please share as much detail as possible about your idea.
 
   - type: textarea

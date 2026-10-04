@@ -12,6 +12,7 @@ struct URLBar: View {
     @EnvironmentObject var historyManager: HistoryManager
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var privacyMode: PrivacyMode
+    @EnvironmentObject private var browserAgentTerminal: BrowserAgentTerminalManager
 
     @Environment(\.theme) private var theme
 
@@ -59,7 +60,7 @@ struct URLBar: View {
 
     private func shareCurrentPage(tab: Tab, sourceView: NSView, sourceRect: NSRect) {
         let url = tab.url
-        let title = tab.title.isEmpty ? "Shared from Ora" : tab.title
+        let title = tab.title.isEmpty ? "Shared from NF Browser" : tab.title
         let items: [Any] = [title, url]
         let picker = NSSharingServicePicker(items: items)
         picker.delegate = nil
@@ -238,6 +239,14 @@ struct URLBar: View {
                     }
                 )
 
+                URLBarButton(
+                    systemName: "terminal",
+                    isEnabled: true,
+                    foregroundColor: buttonForegroundColor,
+                    action: { browserAgentTerminal.togglePanel() }
+                )
+                .help(browserAgentTerminal.isPanelVisible ? "Hide Agent Terminal" : "Show Agent Terminal")
+
                 if sidebarManager.sidebarPosition == .secondary {
                     URLBarButton(
                         systemName: "sidebar.right",
@@ -262,11 +271,15 @@ struct URLBar: View {
                     .allowsHitTesting(false)
             )
             .onChange(of: tabManager.activeTab?.id) { _, _ in
-                if isEditing { dismissEditing() }
+                if isEditing {
+                    dismissEditing()
+                }
             }
             .onChange(of: appState.showLauncher) { _, newValue in
                 // Dismiss URL bar editing if the center launcher is opened
-                if newValue, isEditing { dismissEditing() }
+                if newValue, isEditing {
+                    dismissEditing()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .copyAddressURL)) { _ in
                 if let activeTab = tabManager.activeTab {

@@ -129,6 +129,16 @@ struct OraCommands: Commands {
             .keyboardShortcut(KeyboardShortcuts.Navigation.forward.keyboardShortcut)
         }
 
+        CommandMenu("Agent") {
+            Button("Toggle Agent Terminal") {
+                NotificationCenter.default.post(
+                    name: .toggleAgentTerminal,
+                    object: NSApp.keyWindow
+                )
+            }
+            .keyboardShortcut("j", modifiers: [.command, .option])
+        }
+
         CommandMenu("Tabs") {
             Button("Reopen Closed Tab") {
                 NotificationCenter.default.post(name: .restoreLastTab, object: NSApp.keyWindow)
@@ -175,13 +185,7 @@ struct OraCommands: Commands {
         }
 
         CommandGroup(replacing: .appInfo) {
-            Button("About Ora") { showAboutWindow() }
-            Button("Check for Updates") {
-                NotificationCenter.default.post(
-                    name: .checkForUpdates,
-                    object: NSApp.keyWindow
-                )
-            }
+            Button("About NF Browser") { showAboutWindow() }
         }
 
         CommandGroup(replacing: .appSettings) {
@@ -196,13 +200,14 @@ struct OraCommands: Commands {
 
     private func showAboutWindow() {
         let alert = NSAlert()
-        alert.messageText = "Ora Browser"
+        alert.messageText = "NF Browser"
         alert.informativeText = """
         Version \(getAppVersion())
 
-        Fast, secure, and beautiful browser built for macOS.
+        An open-source macOS browser by NFLab.
+        Based on Ora Browser and licensed under GPL-3.0.
 
-        © 2025 Ora Browser
+        NFLab · No Filter Lab
         """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")

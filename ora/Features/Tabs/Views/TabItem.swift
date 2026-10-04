@@ -8,21 +8,22 @@ struct LocalFavIcon: View {
     @State private var image: NSImage?
 
     var body: some View {
-        if let image {
-            Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 16, height: 16)
-                .cornerRadius(4)
-                .grayscale(1.0)
-        } else {
-            Image(systemName: "globe")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 16, height: 16)
-                .foregroundColor(textColor)
-                .onAppear(perform: loadFavicon)
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .cornerRadius(4)
+            } else {
+                Image(systemName: "globe")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .foregroundColor(textColor)
+            }
         }
+        .task(id: faviconLocalFile) { loadFavicon() }
     }
 
     private func loadFavicon() {
@@ -144,6 +145,18 @@ struct TabItem: View {
         .opacity(isDragging ? 0.0 : 1.0)
         .background(backgroundColor, in: .rect(cornerRadius: 10))
         .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isSelected ? Color.accentColor.opacity(0.9) : .clear, lineWidth: 1)
+        )
+        .overlay(alignment: .leading) {
+            if isSelected {
+                Capsule()
+                    .fill(Color.accentColor)
+                    .frame(width: 3, height: 22)
+                    .padding(.leading, 3)
+            }
+        }
+        .overlay(
             isDragging ?
                 ConditionallyConcentricRectangle(cornerRadius: 10)
                 .stroke(
@@ -171,6 +184,8 @@ struct TabItem: View {
         .contextMenu { contextMenuItems }
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isDragging)
         .geometryGroup()
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var tabTitle: some View {
@@ -238,7 +253,7 @@ struct TabItem: View {
                 ForEach(availableContainers) { container in
                     if tab.container.id != container.id {
                         Button(action: { onMoveToContainer(container) }) {
-                            Text(container.emoji.isEmpty ? container.name : "\(container.emoji) \(container.name)")
+                            Label(container.name, systemImage: container.systemImage)
                         }
                     }
                 }

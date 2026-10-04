@@ -31,7 +31,7 @@ enum SettingsTab: String, Hashable, CaseIterable {
     var subtitle: String {
         switch self {
         case .general:
-            return "Browser defaults, app behavior, and software updates."
+            return "Browser defaults, tab behavior, and appearance."
         case .spaces:
             return "Space-specific defaults and per-space data controls."
         case .passwords:

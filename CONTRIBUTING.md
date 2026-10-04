@@ -1,6 +1,6 @@
-# Contributing to Ora
+# Contributing to NF Browser
 
-This guide covers the workflow and expectations for contributing to Ora Browser.
+NF Browser is an experimental NFLab project based on the Ora Browser codebase. This guide covers the local development workflow.
 
 ## Before You Start
 
@@ -18,14 +18,14 @@ This guide covers the workflow and expectations for contributing to Ora Browser.
 
 ### Getting Started
 
+From an NF Browser checkout, run:
+
 ```bash
-git clone https://github.com/the-ora/browser.git
-cd browser
 ./scripts/setup.sh
 open Ora.xcodeproj
 ```
 
-The setup script installs required tooling, installs git hooks, and generates the Xcode project.
+The setup script installs required tooling, installs git hooks, and generates the Xcode project. The generated app is named `NF Browser.app`.
 
 If you change project configuration, edit `project.yml` and regenerate the project with:
 
@@ -83,4 +83,4 @@ If you use AI assistance for code generation, documentation, issue comments, or 
 
 ## Questions
 
-If you are unsure whether a change is a good fit, open an issue before investing significant time. For general discussion, you can also join the [Discord community](https://discord.gg/9aZWH52Zjm).
+If you are unsure whether a change is a good fit, open an issue before investing significant time. For project information, visit [NFLab](https://nflab.org/).

@@ -33,22 +33,24 @@ class Download: ObservableObject, Identifiable {
         id: UUID = UUID(),
         originalURL: URL,
         fileName: String,
-        fileSize: Int64 = 0
+        fileSize: Int64 = 0,
+        downloadedBytes: Int64 = 0,
+        createdAt: Date = Date()
     ) {
         self.id = id
         self.originalURL = originalURL
         self.originalURLString = originalURL.absoluteString
         self.fileName = fileName
         self.fileSize = fileSize
-        self.downloadedBytes = 0
+        self.downloadedBytes = downloadedBytes
         self.status = .pending
-        self.progress = 0.0
-        self.createdAt = Date()
+        self.progress = fileSize > 0 ? min(Double(downloadedBytes) / Double(fileSize), 1) : 0
+        self.createdAt = createdAt
 
         // Initialize published properties
         self.displayFileSize = fileSize
-        self.displayDownloadedBytes = 0
-        self.displayProgress = 0.0
+        self.displayDownloadedBytes = downloadedBytes
+        self.displayProgress = self.progress
     }
 
     func updateProgress(downloadedBytes: Int64, totalBytes: Int64) {

@@ -162,7 +162,11 @@ private struct PasswordsWindowView: View {
         }
         .alert("Delete saved password?", isPresented: Binding(
             get: { pendingDelete != nil },
-            set: { if !$0 { pendingDelete = nil } }
+            set: {
+                if !$0 {
+                    pendingDelete = nil
+                }
+            }
         )) {
             Button("Delete", role: .destructive) {
                 if let pendingDelete {
@@ -420,7 +424,7 @@ private struct PasswordsWindowView: View {
     private func unlockVault() {
         isAuthenticating = true
         Task {
-            let authenticated = await passwordManager.authenticate(reason: "Unlock your saved passwords in Ora")
+            let authenticated = await passwordManager.authenticate(reason: "Unlock your saved passwords in NF Browser")
             await MainActor.run {
                 isUnlocked = authenticated
                 isAuthenticating = false
@@ -456,6 +460,6 @@ private struct PasswordsWindowView: View {
     }
 
     private func containerLabel(for container: TabContainer) -> String {
-        "\(container.emoji) \(container.name)"
+        container.name
     }
 }

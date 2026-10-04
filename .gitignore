@@ -66,12 +66,13 @@ appcast.xml.bak
 dsa_priv.pem
 dsa_pub.pem
 exportOptions.plist
-Ora-Browser.dmg
-rw.*.Ora-Browser.dmg
+NF-Browser.dmg
+rw.*.NF-Browser.dmg
 
 # Sparkle and signing (SECURITY: Never commit private keys!)
 *_private.pem
 *_public.pem
+ora_public_key.pem
 # *.pem
 dsa_priv.pem    # CRITICAL: Never commit this file!
 dsa_pub.pem     # Public key (safe to commit if needed)

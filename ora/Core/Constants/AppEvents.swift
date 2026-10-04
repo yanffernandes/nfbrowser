@@ -17,6 +17,7 @@ extension Notification.Name {
     static let nextTab = Notification.Name("NextTab")
     static let previousTab = Notification.Name("PreviousTab")
     static let toggleToolbar = Notification.Name("ToggleToolbar")
+    static let toggleAgentTerminal = Notification.Name("ToggleAgentTerminal")
     static let selectTabAtIndex = Notification.Name("SelectTabAtIndex") // userInfo: ["index": Int]
 
     // Per-window settings/events
@@ -30,6 +31,7 @@ extension Notification.Name {
     static let clearCacheAndReload = Notification.Name("ClearCacheAndReload")
     static let clearCookiesAndReload = Notification.Name("ClearCookiesAndReload")
     static let spacePrivacySettingsChanged = Notification.Name("SpacePrivacySettingsChanged")
+    static let importArcData = Notification.Name("ImportArcData")
 
     /// App lifecycle
     static let quitRequested = Notification.Name("QuitRequested")

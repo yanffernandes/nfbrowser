@@ -13,15 +13,14 @@ struct PinnedTabsList: View {
     let onMoveToContainer: (Tab, TabContainer) -> Void
     let containers: [TabContainer]
     @EnvironmentObject var tabManager: TabManager
-    @Environment(\.theme) var theme
 
     var body: some View {
         VStack(spacing: 8) {
-            Text("Pinned")
-                .font(.callout)
-                .foregroundColor(theme.mutedForeground)
-                .padding(.top, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            SidebarTabSectionHeader(
+                title: "Pinned",
+                count: tabs.count,
+                systemImage: "pin.fill"
+            )
             if tabs.isEmpty {
                 EmptyPinnedTabs()
             } else {

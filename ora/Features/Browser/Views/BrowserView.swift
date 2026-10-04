@@ -4,6 +4,7 @@ import SwiftUI
 
 struct BrowserView: View {
     @Environment(\.theme) var theme
+    @Environment(\.window) private var window: NSWindow?
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var downloadManager: DownloadManager
@@ -11,6 +12,7 @@ struct BrowserView: View {
     @EnvironmentObject private var privacyMode: PrivacyMode
     @EnvironmentObject private var sidebarManager: SidebarManager
     @EnvironmentObject private var toolbarManager: ToolbarManager
+    @EnvironmentObject private var browserAgentTerminal: BrowserAgentTerminalManager
 
     @ObserveInjection var inject
 
@@ -108,6 +110,11 @@ struct BrowserView: View {
         .onReceive(NotificationCenter.default.publisher(for: .toggleSidebarPosition)) { _ in
             sidebarManager.toggleSidebarPosition()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleAgentTerminal)) { notification in
+            guard let targetWindow = notification.object as? NSWindow,
+                  targetWindow === window else { return }
+            browserAgentTerminal.togglePanel()
+        }
         .onChange(of: downloadManager.isShowingDownloadsHistory) { _, isOpen in
             if sidebarManager.isSidebarHidden {
                 if isOpen {
@@ -134,6 +141,7 @@ struct BrowserView: View {
             }
         }
         .onAppear {
+            browserAgentTerminal.attach(tabManager: tabManager)
             if let tab = tabManager.activeTab, !tab.isWebViewReady {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     tab.restoreTransientState(
@@ -144,6 +152,9 @@ struct BrowserView: View {
                     )
                 }
             }
+        }
+        .onDisappear {
+            browserAgentTerminal.stopCurrentSession()
         }
     }
 }

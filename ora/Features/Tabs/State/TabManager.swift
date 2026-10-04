@@ -163,8 +163,8 @@ class TabManager: ObservableObject {
     }
 
     @discardableResult
-    func createContainer(name: String = "Default", emoji: String = "•") -> TabContainer {
-        let newContainer = TabContainer(name: name, emoji: emoji)
+    func createContainer(name: String = "Default", emoji: String = "", iconSystemName: String = "") -> TabContainer {
+        let newContainer = TabContainer(name: name, emoji: emoji, iconSystemName: iconSystemName)
         modelContext.insert(newContainer)
         activeContainer = newContainer
         self.activeTab = nil
@@ -173,9 +173,10 @@ class TabManager: ObservableObject {
         return newContainer
     }
 
-    func renameContainer(_ container: TabContainer, name: String, emoji: String) {
+    func renameContainer(_ container: TabContainer, name: String, emoji: String, iconSystemName: String = "") {
         container.name = name
         container.emoji = emoji
+        container.iconSystemName = iconSystemName
         try? modelContext.save()
     }
 
