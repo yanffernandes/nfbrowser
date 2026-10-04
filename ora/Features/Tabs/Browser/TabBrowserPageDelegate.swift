@@ -22,32 +22,35 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
             return .allow
         }
 
+        let isOpenInPeek = navigationAction.modifierFlags.contains(.shift)
+
         MainActor.assumeIsolated {
-            _ = tabManager.openTab(
-                url: url,
-                historyManager: historyManager,
-                downloadManager: downloadManager,
-                isPrivate: tab.isPrivate
-            )
+            if isOpenInPeek {
+                tabManager.openPeek(url: url)
+            } else {
+                _ = tabManager.openTab(
+                    url: url,
+                    historyManager: historyManager,
+                    downloadManager: downloadManager,
+                    insertAfter: tab,
+                    focusAfterOpening: false,
+                    isPrivate: tab.isPrivate,
+                    loadSilently: true
+                )
+            }
         }
         return .openInNewTab
     }
 
     func browserPage(_ page: BrowserPage, didRequestOpenInNewTab url: URL) {
         guard let tab,
-              let tabManager = tab.tabManager,
-              let historyManager = tab.historyManager
+              let tabManager = tab.tabManager
         else {
             return
         }
 
         MainActor.assumeIsolated {
-            _ = tabManager.openTab(
-                url: url,
-                historyManager: historyManager,
-                downloadManager: tab.downloadManager,
-                isPrivate: tab.isPrivate
-            )
+            tabManager.openPeek(url: url)
         }
     }
 

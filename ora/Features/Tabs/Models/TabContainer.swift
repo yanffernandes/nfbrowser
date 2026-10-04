@@ -19,11 +19,19 @@ enum SpaceIcon {
     }
 
     static let groups: [Group] = [
+        Group(title: "Especiais", icons: [
+            Icon(name: "checkmark.square.fill", label: "Check (Quadrado)"),
+            Icon(name: "checkmark", label: "Check"),
+            Icon(name: "checkmark.circle.fill", label: "Check (Círculo)"),
+            Icon(name: "checkmark.seal.fill", label: "Check (Selo)"),
+            Icon(name: "xmark.square.fill", label: "X (Quadrado)"),
+            Icon(name: "xmark", label: "X"),
+            Icon(name: "xmark.circle.fill", label: "X (Círculo)")
+        ]),
         Group(title: "Spaces", icons: [
-            Icon(name: "square.grid.2x2.fill", label: "General"),
-            Icon(name: "checkmark.seal.fill", label: "Koncluí"),
-            Icon(name: "sparkles", label: "XTYL"),
-            Icon(name: "network", label: "Newar"),
+            Icon(name: "square.grid.2x2.fill", label: "Geral"),
+            Icon(name: "sparkles", label: "Brilho"),
+            Icon(name: "network", label: "Rede"),
             Icon(name: "brain.head.profile", label: "Secbrain"),
             Icon(name: "globe", label: "Web")
         ]),
@@ -68,14 +76,15 @@ enum SpaceIcon {
     static let options = groups.flatMap(\.icons)
 
     static func systemImage(for name: String) -> String {
-        return switch normalizedName(for: name) {
-        case "konclui": "checkmark.seal.fill"
-        case "xtyl": "sparkles"
+        let norm = normalizedName(for: name)
+        return switch norm {
+        case "konclui", "conclui", "concluido", "done", "check": "checkmark.square.fill"
+        case "xtyl", "x": "xmark.square.fill"
         case "newar": "network"
         case "secbrain": "brain.head.profile"
         case "webfi": "globe"
-        case "cfk": "folder"
-        default: "square.grid.2x2"
+        case "cfk": "folder.fill"
+        default: "square.grid.2x2.fill"
         }
     }
 
@@ -108,8 +117,14 @@ class TabContainer: ObservableObject, Identifiable {
     var name: String
     var emoji: String
     var iconSystemName: String = ""
+    var engine: String = BrowserEngineKind.webkit.rawValue
     var createdAt: Date
     var lastAccessedAt: Date
+
+    var engineKind: BrowserEngineKind {
+        get { BrowserEngineKind(rawValue: engine) ?? .webkit }
+        set { engine = newValue.rawValue }
+    }
 
     var systemImage: String {
         if SpaceIcon.options.contains(where: { $0.name == iconSystemName }) {
@@ -123,6 +138,17 @@ class TabContainer: ObservableObject, Identifiable {
         SpaceIcon.sortOrder(for: name)
     }
 
+    var idString: String {
+        id.uuidString
+    }
+
+    static func stableSort(_ lhs: TabContainer, _ rhs: TabContainer) -> Bool {
+        if lhs.sidebarSortOrder == rhs.sidebarSortOrder {
+            return lhs.createdAt < rhs.createdAt
+        }
+        return lhs.sidebarSortOrder < rhs.sidebarSortOrder
+    }
+
     @Relationship(deleteRule: .cascade) var tabs: [Tab] = []
     @Relationship(deleteRule: .cascade) var folders: [Folder] = []
     @Relationship var history: [History] = []
@@ -132,38 +158,38 @@ class TabContainer: ObservableObject, Identifiable {
         name: String = "Default",
         isActive: Bool = true,
         emoji: String = "",
-        iconSystemName: String = ""
+        iconSystemName: String = "",
+        engine: BrowserEngineKind = .webkit
     ) {
         let nowDate = Date()
         self.id = id
         self.name = name
         self.emoji = emoji
         self.iconSystemName = iconSystemName
+        self.engine = engine.rawValue
         self.createdAt = nowDate
         self.lastAccessedAt = nowDate
     }
 
     func reorderTabs(from: Tab, to: Tab) {
-        let dir = from.order - to.order > 0 ? -1 : 1
+        guard from.id != to.id else { return }
 
-        let tabOrder = self.tabs.sorted { dir == -1 ? $0.order > $1.order : $0.order < $1.order }
+        // Only reorder within the same tab section (normal, pinned, or fav)
+        var sectionTabs = self.tabs
+            .filter { $0.type == to.type }
+            .sorted { $0.order > $1.order }
 
-        var started = false
-        for (index, tab) in tabOrder.enumerated() {
-            if tab.id == from.id {
-                started = true
-            }
-            if tab.id == to.id {
-                break
-            }
-            if started {
-                let currentTab = tab
-                let nextTab = tabOrder[index + 1]
+        guard let fromIndex = sectionTabs.firstIndex(where: { $0.id == from.id }),
+              let toIndex = sectionTabs.firstIndex(where: { $0.id == to.id })
+        else { return }
 
-                let tempOrder = currentTab.order
-                currentTab.order = nextTab.order
-                nextTab.order = tempOrder
-            }
+        let movedTab = sectionTabs.remove(at: fromIndex)
+        sectionTabs.insert(movedTab, at: toIndex)
+
+        // Assign clean, monotonic descending order numbers with generous spacing
+        let total = sectionTabs.count
+        for (index, tab) in sectionTabs.enumerated() {
+            tab.order = (total - index) * 10
         }
     }
 }

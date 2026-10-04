@@ -40,6 +40,9 @@ private struct ClosedTabSnapshot {
 class TabManager: ObservableObject {
     @Published var activeContainer: TabContainer?
     @Published var activeTab: Tab?
+    @Published var peekTab: Tab?
+    weak var historyManager: HistoryManager?
+    weak var downloadManager: DownloadManager?
     let modelContainer: ModelContainer
     let modelContext: ModelContext
     let mediaController: MediaController
@@ -163,8 +166,18 @@ class TabManager: ObservableObject {
     }
 
     @discardableResult
-    func createContainer(name: String = "Default", emoji: String = "", iconSystemName: String = "") -> TabContainer {
-        let newContainer = TabContainer(name: name, emoji: emoji, iconSystemName: iconSystemName)
+    func createContainer(
+        name: String = "Default",
+        emoji: String = "",
+        iconSystemName: String = "",
+        engine: BrowserEngineKind = .webkit
+    ) -> TabContainer {
+        let newContainer = TabContainer(
+            name: name,
+            emoji: emoji,
+            iconSystemName: iconSystemName,
+            engine: engine
+        )
         modelContext.insert(newContainer)
         activeContainer = newContainer
         self.activeTab = nil
@@ -178,6 +191,7 @@ class TabManager: ObservableObject {
         container.emoji = emoji
         container.iconSystemName = iconSystemName
         try? modelContext.save()
+        objectWillChange.send()
     }
 
     func deleteContainer(_ container: TabContainer) {
@@ -296,6 +310,7 @@ class TabManager: ObservableObject {
         url: URL,
         historyManager: HistoryManager,
         downloadManager: DownloadManager? = nil,
+        insertAfter: Tab? = nil,
         focusAfterOpening: Bool = true,
         isPrivate: Bool,
         loadSilently: Bool = false
@@ -306,6 +321,24 @@ class TabManager: ObservableObject {
 
                 let cleanHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
 
+                let newOrder: Int
+                let parentTab = insertAfter ?? (focusAfterOpening ? nil : activeTab)
+                if let parentTab, parentTab.container.id == container.id, parentTab.type == .normal {
+                    // Shift down tabs below the parent tab so the new tab is placed directly below it
+                    for tab in container.tabs where tab.type == .normal && tab.order < parentTab.order {
+                        tab.order -= 1
+                    }
+                    newOrder = parentTab.order - 1
+                } else if !focusAfterOpening {
+                    // Place at the bottom of open normal tabs
+                    let minOrder = container.tabs.filter { $0.type == .normal }.map(\.order).min() ?? 1
+                    newOrder = minOrder - 1
+                } else {
+                    // Place at the top of open normal tabs
+                    let maxOrder = container.tabs.filter { $0.type == .normal }.map(\.order).max() ?? 0
+                    newOrder = maxOrder + 1
+                }
+
                 let newTab = Tab(
                     url: url,
                     title: cleanHost,
@@ -313,7 +346,7 @@ class TabManager: ObservableObject {
                     container: container,
                     type: .normal,
                     isPlayingMedia: false,
-                    order: container.tabs.count + 1,
+                    order: newOrder,
                     historyManager: historyManager,
                     downloadManager: downloadManager,
                     tabManager: self,
@@ -326,7 +359,7 @@ class TabManager: ObservableObject {
                     activateTab(newTab)
                 }
                 if focusAfterOpening || loadSilently {
-                    // Initialize the WebView for the new active tab
+                    // Initialize the WebView for the new tab (loads in background if not focused)
                     newTab.restoreTransientState(
                         historyManager: historyManager,
                         downloadManager: downloadManager ?? DownloadManager(
@@ -344,6 +377,90 @@ class TabManager: ObservableObject {
             }
         }
         return nil
+    }
+
+    // MARK: - Peek (Floating Preview)
+
+    func openPeek(url: URL) {
+        guard let container = activeContainer else { return }
+
+        if let existing = peekTab {
+            existing.stopMedia {
+                DispatchQueue.main.async {
+                    existing.destroyWebView()
+                }
+            }
+        }
+
+        let cleanHost = url.host?.replacingOccurrences(of: "www.", with: "") ?? "New Tab"
+        let faviconURL = URL(string: "https://\(cleanHost)/favicon.ico")
+
+        let hManager = self.historyManager ?? HistoryManager(modelContainer: modelContainer, modelContext: modelContext)
+        let dManager = self.downloadManager ?? DownloadManager(modelContainer: modelContainer, modelContext: modelContext)
+
+        let newTab = Tab(
+            url: url,
+            title: cleanHost,
+            favicon: faviconURL,
+            container: container,
+            type: .normal,
+            isPlayingMedia: false,
+            order: 0,
+            historyManager: hManager,
+            downloadManager: dManager,
+            tabManager: self,
+            isPrivate: false
+        )
+
+        newTab.restoreTransientState(
+            historyManager: hManager,
+            downloadManager: dManager,
+            tabManager: self,
+            isPrivate: false
+        )
+
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+            self.peekTab = newTab
+        }
+    }
+
+    func closePeek() {
+        guard let tab = peekTab else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            self.peekTab = nil
+        }
+        tab.stopMedia {
+            DispatchQueue.main.async {
+                tab.destroyWebView()
+            }
+        }
+    }
+
+    func promotePeekTab() {
+        guard let tab = peekTab, let container = activeContainer else { return }
+
+        let parentTab = activeTab
+        let newOrder: Int
+        if let parentTab, parentTab.container.id == container.id, parentTab.type == .normal {
+            for t in container.tabs where t.type == .normal && t.order < parentTab.order {
+                t.order -= 1
+            }
+            newOrder = parentTab.order - 1
+        } else {
+            let minOrder = container.tabs.filter { $0.type == .normal }.map(\.order).min() ?? 1
+            newOrder = minOrder - 1
+        }
+
+        tab.order = newOrder
+        tab.container = container
+        modelContext.insert(tab)
+        container.tabs.append(tab)
+        try? modelContext.save()
+
+        withAnimation(.easeOut(duration: 0.18)) {
+            self.peekTab = nil
+        }
+        self.activateTab(tab)
     }
 
     func reorderTabs(from: Tab, toTab: Tab) {
@@ -365,10 +482,8 @@ class TabManager: ObservableObject {
                 .first
             {
                 self.activateTab(nextTab)
-
-                //            } else if let nextContainer = containers.first(where: { $0.id != tab.container.id }) {
-                //                self.activateContainer(nextContainer)
-                //
+            } else if let nextAnyTab = tab.container.tabs.first(where: { $0.id != tab.id }) {
+                self.activateTab(nextAnyTab)
             } else {
                 self.activeTab = nil
             }
@@ -389,20 +504,24 @@ class TabManager: ObservableObject {
         if shouldTrackForRestore, tab.type == .normal {
             trackRecentlyClosedTab(tab)
         }
-        tab.stopMedia { [weak self] in
+
+        // Immediately remove from container and modelContext so UI updates instantly (0ms)
+        tab.container.tabs.removeAll { $0.id == tab.id }
+        if tab.type == .normal {
+            self.modelContext.delete(tab)
+        } else {
+            tab.isWebViewReady = false
+        }
+        self.mediaController.removeSession(for: tab.id)
+        try? self.modelContext.save()
+        self.activeTab?.maybeIsActive = true
+
+        // Clean up media and web view in background asynchronously
+        tab.stopMedia {
             DispatchQueue.main.async {
-                guard let self else { return }
-                if tab.type == .normal {
-                    self.modelContext.delete(tab)
-                } else {
-                    tab.isWebViewReady = false
-                    tab.destroyWebView()
-                }
-                self.mediaController.removeSession(for: tab.id)
-                try? self.modelContext.save()
+                tab.destroyWebView()
             }
         }
-        self.activeTab?.maybeIsActive = true
     }
 
     func closeActiveTab() {
@@ -608,17 +727,16 @@ class TabManager: ObservableObject {
     }
 
     func duplicateTab(_ tab: Tab) {
-        // Create a new tab using the existing openTab method
         guard let historyManager = tab.historyManager else { return }
-        guard let newTab = openTab(
+        _ = openTab(
             url: tab.url,
             historyManager: historyManager,
             downloadManager: tab.downloadManager,
+            insertAfter: tab,
             focusAfterOpening: false,
             isPrivate: tab.isPrivate,
             loadSilently: true
-        ) else { return }
-        self.reorderTabs(from: tab, toTab: newTab)
+        )
     }
 
     func refreshPrivacySettings(for containerId: UUID) {

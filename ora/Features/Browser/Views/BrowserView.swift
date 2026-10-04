@@ -80,6 +80,9 @@ struct BrowserView: View {
                     if appState.isFloatingTabSwitchVisible {
                         FloatingTabSwitcher()
                     }
+                    if let peekTab = tabManager.peekTab {
+                        PeekOverlayView(tab: peekTab)
+                    }
                 }
 
             if sidebarManager.isSidebarHidden {

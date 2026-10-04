@@ -120,6 +120,8 @@ struct OraRoot: View {
             .enableInjection()
             .onAppear {
                 downloadManager.toastManager = toastManager
+                tabManager.historyManager = historyManager
+                tabManager.downloadManager = downloadManager
                 Task {
                     let containerIDs = await MainActor.run {
                         (try? tabContext.fetch(FetchDescriptor<TabContainer>()))?.map(\.id) ?? []
@@ -127,12 +129,18 @@ struct OraRoot: View {
                     await AdBlockService.shared.start(containerIDs: containerIDs)
                 }
 
-                // Dialog keyboard shortcuts (highest priority — checked first)
+                // Dialog and Peek keyboard shortcuts (highest priority — checked first)
                 keyModifierListener.registerKeyDownHandler { event in
-                    // Escape: dismiss top dialog
-                    if event.keyCode == 53, !dialogManager.dialogs.isEmpty {
-                        DispatchQueue.main.async { dialogManager.dismissTop() }
-                        return true
+                    // Escape: dismiss peek or top dialog
+                    if event.keyCode == 53 {
+                        if tabManager.peekTab != nil {
+                            DispatchQueue.main.async { tabManager.closePeek() }
+                            return true
+                        }
+                        if !dialogManager.dialogs.isEmpty {
+                            DispatchQueue.main.async { dialogManager.dismissTop() }
+                            return true
+                        }
                     }
                     // Return: confirm top dialog (only if it carries a confirm action)
                     if event.keyCode == 36, let onConfirm = dialogManager.dialogs.last?.onConfirm {
@@ -198,9 +206,29 @@ struct OraRoot: View {
                 }
                 NotificationCenter.default.addObserver(forName: .restoreLastTab, object: nil, queue: .main) { note in
                     Task { @MainActor in
-                        guard note.object as? NSWindow === window ?? NSApp.keyWindow else { return }
+                        if let source = note.object as? NSWindow {
+                            guard source === window ?? NSApp.keyWindow else { return }
+                        }
                         tabManager.restoreLastTab()
                     }
+                }
+                keyModifierListener.registerKeyDownHandler { event in
+                    let chars = event.charactersIgnoringModifiers?.lowercased()
+                    guard chars == "z" else { return false }
+
+                    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    let isCommandZ = flags == [.command]
+                    let isControlZ = flags == [.control]
+
+                    if isCommandZ || isControlZ {
+                        if let responder = NSApp.keyWindow?.firstResponder,
+                           responder is NSTextView || responder is NSTextField {
+                            return false
+                        }
+                        tabManager.restoreLastTab()
+                        return true
+                    }
+                    return false
                 }
                 NotificationCenter.default.addObserver(forName: .findInPage, object: nil, queue: .main) { note in
                     Task { @MainActor in

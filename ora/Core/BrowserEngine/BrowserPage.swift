@@ -5,6 +5,7 @@ import Foundation
 final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     weak var delegate: BrowserPageDelegate?
 
+    let engineKind: BrowserEngineKind
     private let webView: WKWebView
     private let messageNames: [String]
     private var originalURL: URL?
@@ -16,12 +17,15 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
     private var pendingReload = false
 
     init(
+        engineKind: BrowserEngineKind = .webkit,
         profile: BrowserEngineProfile,
         configuration: BrowserPageConfiguration,
         delegate: BrowserPageDelegate?
     ) {
+        self.engineKind = engineKind
         let webConfiguration = WKWebViewConfiguration()
-        webConfiguration.applicationNameForUserAgent = configuration.userAgent
+        // Do NOT use applicationNameForUserAgent with a full UA string,
+        // as WebKit appends it to its default UA. We set webView.customUserAgent directly.
         webConfiguration.websiteDataStore = profile.dataStore
         webConfiguration.allowsAirPlayForMediaPlayback = configuration.allowsAirPlayForMediaPlayback
         webConfiguration.preferences.setValue(
@@ -51,9 +55,37 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
         webConfiguration.userContentController = contentController
         messageNames = configuration.scriptMessageNames
         webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        if let userAgent = configuration.userAgent {
+            webView.customUserAgent = userAgent
+        }
         self.delegate = delegate
 
         super.init()
+
+        // Inject standard Safari runtime polyfill so Google Botguard / OAuth recognizes standard browser environment
+        let safariPolyfill = WKUserScript(
+            source: """
+            (function() {
+                try {
+                    if (typeof window.safari === 'undefined') {
+                        Object.defineProperty(window, 'safari', {
+                            value: {
+                                pushNotification: {
+                                    toString: function() { return "[object SafariRemoteNotification]"; }
+                                }
+                            },
+                            writable: false,
+                            configurable: true,
+                            enumerable: false
+                        });
+                    }
+                } catch (e) {}
+            })();
+            """,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        contentController.addUserScript(safariPolyfill)
 
         for messageName in configuration.scriptMessageNames {
             contentController.add(self, name: messageName)
@@ -245,6 +277,12 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
+        if navigationAction.targetFrame == nil, let url = navigationAction.request.url, !url.absoluteString.isEmpty {
+            delegate?.browserPage(self, didRequestOpenInNewTab: url)
+            decisionHandler(.cancel)
+            return
+        }
+
         let action = BrowserNavigationAction(
             request: navigationAction.request,
             modifierFlags: navigationAction.modifierFlags
@@ -256,9 +294,6 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
         case .cancel:
             decisionHandler(.cancel)
         case .openInNewTab:
-            if let url = navigationAction.request.url {
-                delegate?.browserPage(self, didRequestOpenInNewTab: url)
-            }
             decisionHandler(.cancel)
         }
     }
