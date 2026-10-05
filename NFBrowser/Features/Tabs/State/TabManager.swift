@@ -46,9 +46,21 @@ class TabManager: ObservableObject {
     @Published var splitTab: Tab?
     weak var historyManager: HistoryManager?
     weak var downloadManager: DownloadManager?
+    weak var dialogManager: DialogManager?
     let modelContainer: ModelContainer
     let modelContext: ModelContext
     let mediaController: MediaController
+
+    func promptRename(for tab: Tab) {
+        dialogManager?.show { [weak self] id in
+            RenameTabModal(
+                tab: tab,
+                dismiss: {
+                    self?.dialogManager?.dismiss(id: id)
+                }
+            )
+        }
+    }
 
     var recentTabs: [Tab] {
         guard let container = activeContainer else { return [] }

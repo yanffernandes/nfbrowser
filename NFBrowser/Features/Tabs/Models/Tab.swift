@@ -407,29 +407,7 @@ class Tab: ObservableObject, Identifiable {
 
     @MainActor
     func promptRename() {
-        let alert = NSAlert()
-        alert.messageText = "Rename Tab"
-        alert.informativeText = "Enter a custom title for this tab, or leave it blank to reset to the original title."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
-        textField.stringValue = customTitle ?? title
-        textField.isEditable = true
-        textField.isSelectable = true
-        alert.accessoryView = textField
-        alert.window.initialFirstResponder = textField
-
-        DispatchQueue.main.async {
-            alert.window.makeFirstResponder(textField)
-            textField.selectText(nil)
-            if alert.runModal() == .alertFirstButtonReturn {
-                let trimmed = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                self.customTitle = trimmed.isEmpty ? nil : trimmed
-                try? self.tabManager?.modelContext.save()
-            }
-        }
+        tabManager?.promptRename(for: self)
     }
 
     @MainActor

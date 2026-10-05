@@ -77,38 +77,27 @@ struct BrowserSplitView: View {
     }
 
     private func contentView() -> some View {
-        Group {
-            if browserAgentTerminal.isPanelVisible {
-                HSplit(
-                    left: {
-                        BrowserContentContainer {
-                            if let activeTab = tabManager.activeTab {
-                                BrowserTabSplitContainer(activeTab: activeTab)
-                            } else {
-                                HomeView()
-                            }
-                        }
-                    },
-                    right: {
-                        BrowserAgentTerminalPanel()
+        HSplit(
+            left: {
+                BrowserContentContainer {
+                    if let activeTab = tabManager.activeTab {
+                        BrowserTabSplitContainer(activeTab: activeTab)
+                    } else {
+                        HomeView()
                     }
-                )
-                .fraction(browserAgentTerminal.contentFraction)
-                .splitter {
-                    AgentPanelSplitter()
                 }
-                .constraints(minPFraction: 0.30, minSFraction: 0.10, priority: .primary)
-                .styling(visibleThickness: 1)
-            } else if let activeTab = tabManager.activeTab {
-                BrowserContentContainer {
-                    BrowserTabSplitContainer(activeTab: activeTab)
-                }
-            } else {
-                BrowserContentContainer {
-                    HomeView()
-                }
+            },
+            right: {
+                BrowserAgentTerminalPanel()
             }
+        )
+        .hide(browserAgentTerminal.hiddenPanel)
+        .fraction(browserAgentTerminal.contentFraction)
+        .splitter {
+            AgentPanelSplitter()
         }
+        .constraints(minPFraction: 0.30, minSFraction: 0.10, priority: .primary)
+        .styling(visibleThickness: 1)
         .toast(manager: toastManager)
     }
 }

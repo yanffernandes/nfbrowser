@@ -124,6 +124,7 @@ typealias OraRoot = NFBrowserRoot
                 downloadManager.toastManager = toastManager
                 tabManager.historyManager = historyManager
                 tabManager.downloadManager = downloadManager
+                tabManager.dialogManager = dialogManager
                 Task {
                     let containerIDs = await MainActor.run {
                         (try? tabContext.fetch(FetchDescriptor<TabContainer>()))?.map(\.id) ?? []

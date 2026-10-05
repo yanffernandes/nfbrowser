@@ -21,6 +21,7 @@ final class BrowserPageHostView: NSView {
         let isSameContentView = previousContentView === newContentView
 
         if isSameContentView, newContentView?.superview === self {
+            updateHostedContentViewFrame()
             return
         }
 
@@ -67,9 +68,35 @@ final class BrowserPageHostView: NSView {
         }
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        updateHostedContentViewFrame()
+    }
+
+    override func resizeSubviews(withOldSize oldSize: NSSize) {
+        super.resizeSubviews(withOldSize: oldSize)
+        updateHostedContentViewFrame()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            updateHostedContentViewFrame()
+        }
+    }
+
     override func layout() {
         super.layout()
-        hostedContentView?.frame = bounds
+        updateHostedContentViewFrame()
+    }
+
+    private func updateHostedContentViewFrame() {
+        guard let hostedContentView else { return }
+        if hostedContentView.frame != bounds {
+            hostedContentView.frame = bounds
+            hostedContentView.needsLayout = true
+            hostedContentView.needsDisplay = true
+        }
     }
 
     private func configure(contentView: NSView) {
@@ -143,6 +170,10 @@ struct BrowserPageView: NSViewRepresentable {
         let contentView = page.contentView
         context.coordinator.update(page: page, contentView: contentView)
         nsView.host(contentView: contentView)
+    }
+
+    static func dismantleNSView(_ nsView: BrowserPageHostView, coordinator: Coordinator) {
+        nsView.host(contentView: nil)
     }
 
     final class Coordinator: NSObject {

@@ -48,6 +48,7 @@ final class BrowserAgentTerminalManager: ObservableObject, LocalProcessTerminalV
 
     let browserBridge = BrowserAgentBridge()
     let contentFraction = FractionHolder.usingUserDefaults(0.68, key: "browser.agent.contentFraction")
+    let hiddenPanel = SideHolder(.secondary)
 
     private weak var tabManager: TabManager?
     private var workspace: BrowserAgentWorkspace?
@@ -58,7 +59,10 @@ final class BrowserAgentTerminalManager: ObservableObject, LocalProcessTerminalV
     }
 
     func togglePanel() {
-        isPanelVisible.toggle()
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
+            isPanelVisible.toggle()
+            hiddenPanel.side = isPanelVisible ? nil : .secondary
+        }
         if isPanelVisible {
             do {
                 workspace = try BrowserAgentWorkspace.prepare()

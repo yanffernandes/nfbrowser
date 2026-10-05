@@ -95,6 +95,16 @@ struct BrowserPageHostViewTests {
         #expect(staleContentView.removeFromSuperviewCalls == 0)
     }
 
+    @Test func resizingHostResizesHostedContentView() {
+        let host = makeHost()
+        let contentView = TrackingContentView()
+        host.host(contentView: contentView)
+        #expect(contentView.frame.size == host.bounds.size)
+
+        host.setFrameSize(NSSize(width: 1200, height: 900))
+        #expect(contentView.frame.size == NSSize(width: 1200, height: 900))
+    }
+
     private func makeHost() -> BrowserPageHostView {
         BrowserPageHostView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
     }
