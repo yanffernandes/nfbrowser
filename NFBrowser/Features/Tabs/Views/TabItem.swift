@@ -132,6 +132,11 @@ struct TabItem: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    tab.promptRename()
+                }
+            )
 
             actionButton
                 .opacity(isHovering ? 1.0 : 0.0)
@@ -185,7 +190,7 @@ struct TabItem: View {
     }
 
     private var tabTitle: some View {
-        Text(tab.title)
+        Text(tab.displayTitle)
             .font(.system(size: 13))
             .foregroundColor(textColor)
             .lineLimit(1)
@@ -221,6 +226,22 @@ struct TabItem: View {
 
     @ViewBuilder
     private var contextMenuItems: some View {
+        Button(action: {
+            tab.promptRename()
+        }) {
+            Label("Rename Tab", systemImage: "pencil")
+        }
+
+        if tab.customTitle != nil {
+            Button(action: {
+                tab.resetTitle()
+            }) {
+                Label("Reset to Original Title", systemImage: "arrow.counterclockwise")
+            }
+        }
+
+        Divider()
+
         Button(action: onPinToggle) {
             Label(
                 tab.type == .pinned ? "Unpin Tab" : "Pin Tab",

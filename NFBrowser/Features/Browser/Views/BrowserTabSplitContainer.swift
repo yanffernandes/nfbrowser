@@ -42,7 +42,7 @@ struct BrowserTabSplitContainer: View {
                     isPlayingMedia: tab.isPlayingMedia
                 )
 
-                Text(tab.title.isEmpty ? tab.urlString : tab.title)
+                Text(tab.displayTitle.isEmpty ? tab.urlString : tab.displayTitle)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.9))
                     .lineLimit(1)

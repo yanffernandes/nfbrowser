@@ -135,6 +135,6 @@ struct SidebarURLDisplay: View {
     }
 
     private func displayParts(for tab: Tab) -> URLDisplayParts {
-        URLDisplayUtils.displayParts(url: tab.url, title: tab.title, showFull: toolbarManager.showFullURL)
+        URLDisplayUtils.displayParts(url: tab.url, title: tab.displayTitle, showFull: toolbarManager.showFullURL)
     }
 }

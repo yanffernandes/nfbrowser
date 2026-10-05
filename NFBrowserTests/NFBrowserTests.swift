@@ -473,4 +473,50 @@ struct OraTests {
             .errorDescription)
         #expect(refreshedRecord?.activeRevision == record.activeRevision)
     }
+
+    @Test @MainActor func tabDisplayTitleReflectsCustomTitleOrFallsBack() {
+        let container = TabContainer(name: "Test Space")
+        let tab = Tab(
+            url: URL(string: "https://example.com")!,
+            title: "Original Example Title",
+            container: container,
+            order: 0
+        )
+
+        // Baseline: displayTitle should be the page title
+        #expect(tab.displayTitle == "Original Example Title")
+
+        // Set custom title
+        tab.customTitle = "My Custom Work Tab"
+        #expect(tab.displayTitle == "My Custom Work Tab")
+
+        // Whitespace only custom title falls back to page title
+        tab.customTitle = "   "
+        #expect(tab.displayTitle == "Original Example Title")
+
+        // Empty custom title falls back to page title
+        tab.customTitle = ""
+        #expect(tab.displayTitle == "Original Example Title")
+
+        // Fallback when both customTitle and title are empty
+        tab.title = ""
+        tab.customTitle = nil
+        #expect(tab.displayTitle == "New Tab")
+    }
+
+    @Test @MainActor func tabResetTitleClearsCustomTitle() {
+        let container = TabContainer(name: "Test Space")
+        let tab = Tab(
+            url: URL(string: "https://example.com")!,
+            title: "Original Example Title",
+            customTitle: "Renamed Tab",
+            container: container,
+            order: 0
+        )
+
+        #expect(tab.displayTitle == "Renamed Tab")
+        tab.resetTitle()
+        #expect(tab.customTitle == nil)
+        #expect(tab.displayTitle == "Original Example Title")
+    }
 }

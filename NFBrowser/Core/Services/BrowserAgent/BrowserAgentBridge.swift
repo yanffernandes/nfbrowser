@@ -220,7 +220,7 @@ final class BrowserAgentBridge: ObservableObject {
             .map { tab in
                 [
                     "id": tab.id.uuidString,
-                    "title": tab.title,
+                    "title": tab.displayTitle,
                     "url": tab.currentPageURL?.absoluteString ?? tab.url.absoluteString,
                     "active": tabManager.activeTab?.id == tab.id
                 ] as [String: Any]
@@ -265,7 +265,7 @@ final class BrowserAgentBridge: ObservableObject {
         return .success([
             "tab_id": newTab.id.uuidString,
             "url": newTab.url.absoluteString,
-            "title": newTab.title,
+            "title": newTab.displayTitle,
             "focused": focus
         ])
     }

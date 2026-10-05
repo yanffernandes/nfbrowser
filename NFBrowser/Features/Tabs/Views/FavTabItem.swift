@@ -108,9 +108,30 @@ struct FavTabItem: View {
                     )
             }
         }
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                tab.promptRename()
+            }
+        )
         .onHover { isHovering = $0 }
-        .help(tab.title)
+        .help(tab.displayTitle)
         .contextMenu {
+            Button(action: {
+                tab.promptRename()
+            }) {
+                Label("Rename Tab", systemImage: "pencil")
+            }
+
+            if tab.customTitle != nil {
+                Button(action: {
+                    tab.resetTitle()
+                }) {
+                    Label("Reset to Original Title", systemImage: "arrow.counterclockwise")
+                }
+            }
+
+            Divider()
+
             Button(action: onFavoriteToggle) {
                 Label("Remove from Favorites", systemImage: "star.slash")
             }

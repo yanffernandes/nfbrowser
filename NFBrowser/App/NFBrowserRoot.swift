@@ -286,6 +286,12 @@ typealias OraRoot = NFBrowserRoot
                         }
                     }
                 }
+                NotificationCenter.default.addObserver(forName: .renameActiveTab, object: nil, queue: .main) { note in
+                    Task { @MainActor in
+                        guard note.object as? NSWindow === window ?? NSApp.keyWindow else { return }
+                        tabManager.activeTab?.promptRename()
+                    }
+                }
                 NotificationCenter.default.addObserver(forName: .nextTab, object: nil, queue: .main) { note in
                     guard note.object as? NSWindow === window ?? NSApp.keyWindow else { return }
                     appState.isFloatingTabSwitchVisible = true

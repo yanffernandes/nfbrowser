@@ -53,6 +53,12 @@ enum KeyboardShortcuts {
             category: "Tabs",
             defaultChord: KeyChord(keyEquivalent: .init("d"), modifiers: [.command])
         )
+        static let rename = KeyboardShortcutDefinition(
+            id: "tabs.rename",
+            name: "Rename Tab",
+            category: "Tabs",
+            defaultChord: KeyChord(keyEquivalent: .init("r"), modifiers: [.control, .shift])
+        )
         static let tab1 = KeyboardShortcutDefinition(
             id: "tabs.tab1",
             name: "Tab 1",

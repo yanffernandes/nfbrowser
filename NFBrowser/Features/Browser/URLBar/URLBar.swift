@@ -60,7 +60,7 @@ struct URLBar: View {
 
     private func shareCurrentPage(tab: Tab, sourceView: NSView, sourceRect: NSRect) {
         let url = tab.url
-        let title = tab.title.isEmpty ? "Shared from NF Browser" : tab.title
+        let title = tab.displayTitle.isEmpty ? "Shared from NF Browser" : tab.displayTitle
         let items: [Any] = [title, url]
         let picker = NSSharingServicePicker(items: items)
         picker.delegate = nil
@@ -332,7 +332,7 @@ struct URLBar: View {
                 // URL display
                 let parts = URLDisplayUtils.displayParts(
                     url: tab.url,
-                    title: tab.title,
+                    title: tab.displayTitle,
                     showFull: toolbarManager.showFullURL
                 )
                 HStack(spacing: 0) {

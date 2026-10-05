@@ -9,6 +9,7 @@ private struct ClosedTabSnapshot {
     let url: URL
     let savedURL: URL?
     let title: String
+    let customTitle: String?
     let favicon: URL?
     let faviconLocalFile: URL?
     let createdAt: Date
@@ -24,6 +25,7 @@ private struct ClosedTabSnapshot {
         url = tab.url
         savedURL = tab.savedURL
         title = tab.title
+        customTitle = tab.customTitle
         favicon = tab.favicon
         faviconLocalFile = tab.faviconLocalFile
         createdAt = tab.createdAt
@@ -576,6 +578,7 @@ class TabManager: ObservableObject {
             id: snapshot.id,
             url: snapshot.url,
             title: snapshot.title,
+            customTitle: snapshot.customTitle,
             favicon: snapshot.favicon,
             container: container,
             type: snapshot.type,
@@ -583,6 +586,7 @@ class TabManager: ObservableObject {
             tabManager: self,
             isPrivate: snapshot.isPrivate
         )
+        restoredTab.customTitle = snapshot.customTitle
         restoredTab.savedURL = snapshot.savedURL
         restoredTab.faviconLocalFile = snapshot.faviconLocalFile
         restoredTab.createdAt = snapshot.createdAt
@@ -763,7 +767,7 @@ class TabManager: ObservableObject {
 
     func duplicateTab(_ tab: Tab) {
         guard let historyManager = tab.historyManager else { return }
-        _ = openTab(
+        let duplicated = openTab(
             url: tab.url,
             historyManager: historyManager,
             downloadManager: tab.downloadManager,
@@ -772,6 +776,7 @@ class TabManager: ObservableObject {
             isPrivate: tab.isPrivate,
             loadSilently: true
         )
+        duplicated?.customTitle = tab.customTitle
     }
 
     func refreshPrivacySettings(for containerId: UUID) {

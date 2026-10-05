@@ -23,9 +23,17 @@ class Tab: ObservableObject, Identifiable {
     var urlString: String
     var savedURL: URL?
     var title: String
+    var customTitle: String? = nil
     var favicon: URL? // Add favicon property
     var createdAt: Date
     var lastAccessedAt: Date?
+
+    var displayTitle: String {
+        if let custom = customTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !custom.isEmpty {
+            return custom
+        }
+        return title.isEmpty ? "New Tab" : title
+    }
 
     var type: TabType
     var order: Int
@@ -70,6 +78,7 @@ class Tab: ObservableObject, Identifiable {
         id: UUID = UUID(),
         url: URL,
         title: String,
+        customTitle: String? = nil,
         favicon: URL? = nil,
         container: TabContainer,
         type: TabType = .normal,
@@ -77,8 +86,8 @@ class Tab: ObservableObject, Identifiable {
         order: Int,
         historyManager: HistoryManager? = nil,
         downloadManager: DownloadManager? = nil,
-        tabManager: TabManager,
-        isPrivate: Bool
+        tabManager: TabManager? = nil,
+        isPrivate: Bool = false
     ) {
         let nowDate = Date()
         self.id = id
@@ -86,6 +95,7 @@ class Tab: ObservableObject, Identifiable {
         self.urlString = url.absoluteString
 
         self.title = title
+        self.customTitle = customTitle
         self.favicon = favicon
         self.createdAt = nowDate
         self.lastAccessedAt = nowDate
@@ -393,6 +403,39 @@ class Tab: ObservableObject, Identifiable {
         completion: @escaping (NSImage?, Error?) -> Void
     ) {
         browserPage?.takeSnapshot(configuration: configuration, completion: completion)
+    }
+
+    @MainActor
+    func promptRename() {
+        let alert = NSAlert()
+        alert.messageText = "Rename Tab"
+        alert.informativeText = "Enter a custom title for this tab, or leave it blank to reset to the original title."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        textField.stringValue = customTitle ?? title
+        textField.isEditable = true
+        textField.isSelectable = true
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        DispatchQueue.main.async {
+            alert.window.makeFirstResponder(textField)
+            textField.selectText(nil)
+            if alert.runModal() == .alertFirstButtonReturn {
+                let trimmed = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                self.customTitle = trimmed.isEmpty ? nil : trimmed
+                try? self.tabManager?.modelContext.save()
+            }
+        }
+    }
+
+    @MainActor
+    func resetTitle() {
+        customTitle = nil
+        try? tabManager?.modelContext.save()
     }
 }
 

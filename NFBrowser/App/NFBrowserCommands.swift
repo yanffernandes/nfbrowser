@@ -170,6 +170,10 @@ typealias OraCommands = NFBrowserCommands
                 NotificationCenter.default.post(name: .togglePinTab, object: NSApp.keyWindow)
             }.keyboardShortcut(KeyboardShortcuts.Tabs.pin.keyboardShortcut)
 
+            Button("Rename Tab...") {
+                NotificationCenter.default.post(name: .renameActiveTab, object: NSApp.keyWindow)
+            }.keyboardShortcut(KeyboardShortcuts.Tabs.rename.keyboardShortcut)
+
             Divider()
 
             Button("Next Tab") {

@@ -30,10 +30,8 @@ final class TabSearchingService: TabSearchingProviding {
             predicate = #Predicate { tab in
                 (
                     tab.urlString.localizedStandardContains(trimmedText) ||
-                        tab.title
-                        .localizedStandardContains(
-                            trimmedText
-                        )
+                        tab.title.localizedStandardContains(trimmedText) ||
+                        tab.customTitle?.localizedStandardContains(trimmedText) == true
                 ) && tab.container.id == activeContainerId
             }
         }
@@ -71,9 +69,11 @@ final class TabSearchingService: TabSearchingProviding {
     private func scoreMatch(_ tab: Tab, text: String) -> Int {
         let text = text.lowercased()
         let title = tab.title.lowercased()
+        let customTitle = tab.customTitle?.lowercased() ?? ""
         let url = tab.urlString.lowercased()
 
         func score(_ field: String) -> Int {
+            if field.isEmpty { return 0 }
             if field == text { return 100 }
             if field.hasPrefix(text) { return 90 }
             if field.contains(text) { return 75 }
@@ -81,6 +81,6 @@ final class TabSearchingService: TabSearchingProviding {
             return 0
         }
 
-        return max(score(title), score(url))
+        return max(score(title), score(customTitle), score(url))
     }
 }
