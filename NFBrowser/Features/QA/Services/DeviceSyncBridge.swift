@@ -23,6 +23,24 @@ final class DeviceSyncBridge: NSObject, WKScriptMessageHandler {
         window.__nfSyncBridgeInstalled = true;
         let isReceivingSync = false;
 
+        function getPathTo(element) {
+            if (!element || element === document.body) return 'body';
+            if (element.id) return '#' + CSS.escape(element.id);
+            if (!element.parentNode) return element.tagName.toLowerCase();
+            let ix = 0;
+            const siblings = element.parentNode.children || [];
+            for (let i = 0; i < siblings.length; i++) {
+                const sibling = siblings[i];
+                if (sibling === element) {
+                    return getPathTo(element.parentNode) + ' > ' + element.tagName.toLowerCase() + ':nth-of-type(' + (ix + 1) + ')';
+                }
+                if (sibling.tagName === element.tagName) {
+                    ix++;
+                }
+            }
+            return element.tagName.toLowerCase();
+        }
+
         window.__nfSyncScroll = function(percentX, percentY) {
             isReceivingSync = true;
             const maxScrollY = document.documentElement.scrollHeight - window.innerHeight;
@@ -32,7 +50,7 @@ final class DeviceSyncBridge: NSObject, WKScriptMessageHandler {
                 top: maxScrollY > 0 ? percentY * maxScrollY : 0,
                 behavior: 'instant'
             });
-            setTimeout(() => { isReceivingSync = false; }, 50);
+            setTimeout(() => { isReceivingSync = false; }, 60);
         };
 
         window.__nfSyncClick = function(selector) {
@@ -42,7 +60,7 @@ final class DeviceSyncBridge: NSObject, WKScriptMessageHandler {
                 if (el) {
                     isReceivingSync = true;
                     el.click();
-                    setTimeout(() => { isReceivingSync = false; }, 50);
+                    setTimeout(() => { isReceivingSync = false; }, 80);
                 }
             } catch (e) {}
         };
@@ -68,19 +86,7 @@ final class DeviceSyncBridge: NSObject, WKScriptMessageHandler {
             const target = e.target;
             if (!target) return;
             
-            // Generate a simple unique selector
-            let selector = '';
-            if (target.id) {
-                selector = '#' + CSS.escape(target.id);
-            } else if (target.className && typeof target.className === 'string') {
-                const classes = target.className.trim().split(/\\s+/).filter(Boolean).map(c => '.' + CSS.escape(c)).join('');
-                if (classes) {
-                    selector = target.tagName.toLowerCase() + classes;
-                }
-            }
-            if (!selector) {
-                selector = target.tagName.toLowerCase();
-            }
+            const selector = getPathTo(target);
 
             if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.qaSyncEvent) {
                 window.webkit.messageHandlers.qaSyncEvent.postMessage({

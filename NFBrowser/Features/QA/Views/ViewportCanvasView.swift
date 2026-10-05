@@ -22,19 +22,23 @@ struct ViewportCanvasView<Content: View>: View {
                         .ignoresSafeArea()
                 }
 
-                // Web content container
-                if isSimulated, let dims = qaState.effectiveDimensions {
-                    let availableHeight = max(geometry.size.height - 110, 200)
-                    let availableWidth = max(geometry.size.width - 60, 200)
-                    let scaleH = dims.height > availableHeight ? availableHeight / dims.height : 1.0
-                    let scaleW = dims.width > availableWidth ? availableWidth / dims.width : 1.0
-                    let effectiveScale = min(scaleH, scaleW, 1.0) * qaState.zoomScale
+                let dims = qaState.effectiveDimensions
+                let availableHeight = max(geometry.size.height - 110, 200)
+                let availableWidth = max(geometry.size.width - 60, 200)
+                let targetH = dims?.height ?? geometry.size.height
+                let targetW = dims?.width ?? geometry.size.width
+                let scaleH = targetH > availableHeight ? availableHeight / targetH : 1.0
+                let scaleW = targetW > availableWidth ? availableWidth / targetW : 1.0
+                let effectiveScale = isSimulated ? min(scaleH, scaleW, 1.0) * qaState.zoomScale : 1.0
 
-                    VStack(spacing: 8) {
+                VStack(spacing: 0) {
+                    if isSimulated {
                         Spacer(minLength: 58)
+                    }
 
-                        // Device Bezel Frame
-                        VStack(spacing: 0) {
+                    // Device Bezel Frame
+                    VStack(spacing: 0) {
+                        if isSimulated, let currentDims = dims {
                             // Header Bar
                             HStack(spacing: 8) {
                                 Circle().fill(Color.white.opacity(0.2)).frame(width: 8, height: 8)
@@ -47,7 +51,7 @@ struct ViewportCanvasView<Content: View>: View {
                                     .font(.system(size: 11, weight: .semibold))
                                     .foregroundColor(.white.opacity(0.75))
 
-                                Text("\(Int(dims.width)) × \(Int(dims.height))")
+                                Text("\(Int(currentDims.width)) × \(Int(currentDims.height))")
                                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                                     .foregroundColor(.white.opacity(0.45))
 
@@ -66,46 +70,55 @@ struct ViewportCanvasView<Content: View>: View {
                                 .help("Rotate device orientation")
                             }
                             .padding(.horizontal, 12)
-                            .frame(width: dims.width, height: 24)
+                            .frame(width: currentDims.width, height: 24)
                             .background(Color(red: 0.14, green: 0.14, blue: 0.16))
-
-                            // Actual web content
-                            content()
-                                .frame(width: dims.width, height: dims.height)
                         }
-                        .frame(width: dims.width)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.white.opacity(0.18), lineWidth: 1.5)
-                        )
-                        .shadow(color: .black.opacity(0.45), radius: 24, y: 12)
-                        .overlay(alignment: .trailing) {
-                            // Right Drag Handle (Width resize)
-                            rightDragHandle(dims: dims, maxW: geometry.size.width)
+
+                        // Persistent Web View
+                        content()
+                            .frame(
+                                width: isSimulated ? dims?.width : nil,
+                                height: isSimulated ? dims?.height : nil
+                            )
+                            .frame(
+                                maxWidth: isSimulated ? dims?.width : .infinity,
+                                maxHeight: isSimulated ? dims?.height : .infinity
+                            )
+                    }
+                    .frame(width: isSimulated ? dims?.width : nil)
+                    .clipShape(RoundedRectangle(cornerRadius: isSimulated ? 14 : 0, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: isSimulated ? 14 : 0, style: .continuous)
+                            .stroke(isSimulated ? Color.white.opacity(0.18) : Color.clear, lineWidth: isSimulated ? 1.5 : 0)
+                    )
+                    .shadow(color: isSimulated ? .black.opacity(0.45) : .clear, radius: isSimulated ? 24 : 0, y: isSimulated ? 12 : 0)
+                    .overlay(alignment: .trailing) {
+                        if isSimulated, let currentDims = dims {
+                            rightDragHandle(dims: currentDims, maxW: geometry.size.width, scale: effectiveScale)
                                 .offset(x: 14)
                         }
-                        .overlay(alignment: .bottom) {
-                            // Bottom Drag Handle (Height resize)
-                            bottomDragHandle(dims: dims, maxH: geometry.size.height)
+                    }
+                    .overlay(alignment: .bottom) {
+                        if isSimulated, let currentDims = dims {
+                            bottomDragHandle(dims: currentDims, maxH: geometry.size.height, scale: effectiveScale)
                                 .offset(y: 14)
                         }
-                        .overlay(alignment: .bottomTrailing) {
-                            // Corner Drag Handle (Both resize)
-                            cornerDragHandle(dims: dims, maxW: geometry.size.width, maxH: geometry.size.height)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if isSimulated, let currentDims = dims {
+                            cornerDragHandle(dims: currentDims, maxW: geometry.size.width, maxH: geometry.size.height, scale: effectiveScale)
                                 .offset(x: 12, y: 12)
                         }
-                        .scaleEffect(effectiveScale)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: dims)
+                    }
+                    .scaleEffect(isSimulated ? effectiveScale : 1.0)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: dims)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSimulated)
 
+                    if isSimulated {
                         Spacer(minLength: 20)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    // Full Window live browsing
-                    content()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Floating Control Strip docked at top (when QA is active)
                 if qaState.isQAActive || qaState.activePreset != .default {
@@ -118,7 +131,7 @@ struct ViewportCanvasView<Content: View>: View {
         }
     }
 
-    private func rightDragHandle(dims: CGSize, maxW: CGFloat) -> some View {
+    private func rightDragHandle(dims: CGSize, maxW: CGFloat, scale: CGFloat) -> some View {
         ZStack {
             Capsule()
                 .fill(Color.white.opacity(0.35))
@@ -133,7 +146,8 @@ struct ViewportCanvasView<Content: View>: View {
             DragGesture(coordinateSpace: .global)
                 .onChanged { val in
                     if dragStartWidth == nil { dragStartWidth = dims.width }
-                    let newW = max(280, min(maxW - 40, (dragStartWidth ?? dims.width) + val.translation.width))
+                    let deltaW = val.translation.width / max(scale, 0.2)
+                    let newW = max(280, min(maxW - 40, (dragStartWidth ?? dims.width) + deltaW))
                     qaState.customWidth = round(newW)
                     qaState.customHeight = dims.height
                     qaState.activePreset = .custom
@@ -144,7 +158,7 @@ struct ViewportCanvasView<Content: View>: View {
         )
     }
 
-    private func bottomDragHandle(dims: CGSize, maxH: CGFloat) -> some View {
+    private func bottomDragHandle(dims: CGSize, maxH: CGFloat, scale: CGFloat) -> some View {
         ZStack {
             Capsule()
                 .fill(Color.white.opacity(0.35))
@@ -159,7 +173,8 @@ struct ViewportCanvasView<Content: View>: View {
             DragGesture(coordinateSpace: .global)
                 .onChanged { val in
                     if dragStartHeight == nil { dragStartHeight = dims.height }
-                    let newH = max(200, min(maxH - 120, (dragStartHeight ?? dims.height) + val.translation.height))
+                    let deltaH = val.translation.height / max(scale, 0.2)
+                    let newH = max(200, min(maxH - 120, (dragStartHeight ?? dims.height) + deltaH))
                     qaState.customWidth = dims.width
                     qaState.customHeight = round(newH)
                     qaState.activePreset = .custom
@@ -170,7 +185,7 @@ struct ViewportCanvasView<Content: View>: View {
         )
     }
 
-    private func cornerDragHandle(dims: CGSize, maxW: CGFloat, maxH: CGFloat) -> some View {
+    private func cornerDragHandle(dims: CGSize, maxW: CGFloat, maxH: CGFloat, scale: CGFloat) -> some View {
         ZStack {
             Circle()
                 .fill(Color.white.opacity(0.6))
@@ -188,8 +203,10 @@ struct ViewportCanvasView<Content: View>: View {
                         dragStartWidth = dims.width
                         dragStartHeight = dims.height
                     }
-                    let newW = max(280, min(maxW - 40, (dragStartWidth ?? dims.width) + val.translation.width))
-                    let newH = max(200, min(maxH - 120, (dragStartHeight ?? dims.height) + val.translation.height))
+                    let deltaW = val.translation.width / max(scale, 0.2)
+                    let deltaH = val.translation.height / max(scale, 0.2)
+                    let newW = max(280, min(maxW - 40, (dragStartWidth ?? dims.width) + deltaW))
+                    let newH = max(200, min(maxH - 120, (dragStartHeight ?? dims.height) + deltaH))
                     qaState.customWidth = round(newW)
                     qaState.customHeight = round(newH)
                     qaState.activePreset = .custom

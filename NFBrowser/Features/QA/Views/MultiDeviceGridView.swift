@@ -310,11 +310,18 @@ struct MultiDeviceWebViewHost: NSViewRepresentable {
     let engineKind: BrowserEngineKind
     let reloadTrigger: UUID
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let id = UUID()
         var currentURL: URL?
         var lastReloadTrigger: UUID?
         weak var webView: WKWebView?
+
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if navigationAction.targetFrame == nil {
+                webView.load(navigationAction.request)
+            }
+            return nil
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -343,6 +350,7 @@ struct MultiDeviceWebViewHost: NSViewRepresentable {
         context.coordinator.currentURL = url
         context.coordinator.lastReloadTrigger = reloadTrigger
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
 
         let ua: String = switch preset {
         case .mobileS, .mobileM, .mobileL:

@@ -9,7 +9,6 @@ struct CrossEngineSplitView: View {
     @State private var chromiumWebView: WKWebView?
     @State private var webkitURL: URL?
     @State private var chromiumURL: URL?
-    @State private var isSyncActive: Bool = true
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -53,7 +52,7 @@ struct CrossEngineSplitView: View {
             chromiumURL = tab.url
         }
         .onChange(of: tab.url) { _, newURL in
-            if isSyncActive {
+            if tab.qaState.isSyncEnabled {
                 webkitURL = newURL
                 chromiumURL = newURL
             }
@@ -78,18 +77,20 @@ struct CrossEngineSplitView: View {
 
             // Sync Toggle
             Button {
-                isSyncActive.toggle()
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    tab.qaState.isSyncEnabled.toggle()
+                }
             } label: {
                 HStack(spacing: 5) {
-                    Image(systemName: isSyncActive ? "link" : "link.slash")
+                    Image(systemName: tab.qaState.isSyncEnabled ? "link" : "link.slash")
                         .font(.system(size: 11))
-                    Text(isSyncActive ? "Sync: ON" : "Sync: OFF")
+                    Text(tab.qaState.isSyncEnabled ? "Sync: ON" : "Sync: OFF")
                         .font(.system(size: 11, weight: .medium))
                 }
-                .foregroundColor(isSyncActive ? Color.accentColor : .white.opacity(0.6))
+                .foregroundColor(tab.qaState.isSyncEnabled ? Color.accentColor : .white.opacity(0.6))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(isSyncActive ? Color.accentColor.opacity(0.15) : Color.white.opacity(0.08))
+                .background(tab.qaState.isSyncEnabled ? Color.accentColor.opacity(0.15) : Color.white.opacity(0.08))
                 .clipShape(Capsule())
             }
             .buttonStyle(PlainButtonStyle())
@@ -183,9 +184,6 @@ struct CrossEngineSplitView: View {
                     } else {
                         chromiumWebView = wv
                     }
-                    if isSyncActive {
-                        DeviceSyncBridge.shared.register(id: UUID(), webView: wv)
-                    }
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -205,6 +203,22 @@ private struct EngineWebViewHost: NSViewRepresentable {
     let spaceID: UUID
     let onWebViewCreated: (WKWebView) -> Void
 
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        let id = UUID()
+        weak var webView: WKWebView?
+
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if navigationAction.targetFrame == nil {
+                webView.load(navigationAction.request)
+            }
+            return nil
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let profile = BrowserEngine.shared.makeProfile(
@@ -223,6 +237,10 @@ private struct EngineWebViewHost: NSViewRepresentable {
         config.userContentController.addUserScript(syncUserScript)
 
         let webView = WKWebView(frame: .zero, configuration: config)
+        context.coordinator.webView = webView
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
+
         let ua = switch engineKind {
         case .webkit:
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
@@ -232,6 +250,8 @@ private struct EngineWebViewHost: NSViewRepresentable {
         webView.customUserAgent = ua
         webView.load(URLRequest(url: url))
 
+        DeviceSyncBridge.shared.register(id: context.coordinator.id, webView: webView)
+
         DispatchQueue.main.async {
             onWebViewCreated(webView)
         }
@@ -239,4 +259,10 @@ private struct EngineWebViewHost: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {}
+
+    static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
+        DeviceSyncBridge.shared.unregister(id: coordinator.id)
+        nsView.stopLoading()
+        nsView.configuration.userContentController.removeScriptMessageHandler(forName: DeviceSyncBridge.messageName)
+    }
 }

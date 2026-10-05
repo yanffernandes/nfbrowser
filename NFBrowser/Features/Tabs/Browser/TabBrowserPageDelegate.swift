@@ -144,6 +144,18 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
                 tab.updateHeaderColor()
             }
 
+            let wv = page.rawWebView
+            if tab.qaState.activeVisionFilter != .none {
+                MainActor.assumeIsolated {
+                    AccessibilityFilterService.shared.applyFilter(tab.qaState.activeVisionFilter, to: wv)
+                }
+            }
+            if tab.qaState.forcedColorScheme != .system {
+                MainActor.assumeIsolated {
+                    AccessibilityFilterService.shared.applyColorScheme(tab.qaState.forcedColorScheme, to: wv)
+                }
+            }
+
             let workItem = DispatchWorkItem { [weak tab] in
                 tab?.loadingProgress = 0
             }
