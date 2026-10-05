@@ -36,6 +36,11 @@ extension Notification.Name {
     static let spacePrivacySettingsChanged = Notification.Name("SpacePrivacySettingsChanged")
     static let importArcData = Notification.Name("ImportArcData")
 
+    // QA & Developer Mode
+    static let toggleResponsiveViewport = Notification.Name("ToggleResponsiveViewport")
+    static let toggleMultiDeviceGrid = Notification.Name("ToggleMultiDeviceGrid")
+    static let captureQAScreenshot = Notification.Name("CaptureQAScreenshot")
+
     /// App lifecycle
     static let quitRequested = Notification.Name("QuitRequested")
 }

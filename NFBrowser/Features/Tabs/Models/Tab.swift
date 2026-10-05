@@ -64,6 +64,7 @@ class Tab: ObservableObject, Identifiable {
     @Transient @Published var isAgentActive: Bool = false
     @Transient @Published var agentStatusMessage: String? = nil
     @Transient private var agentActivityTask: Task<Void, Never>?
+    @Transient @Published var qaState: QAModeState = QAModeState()
 
     @Relationship(inverse: \TabContainer.tabs) var container: TabContainer
 

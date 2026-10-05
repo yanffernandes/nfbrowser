@@ -225,6 +225,47 @@ typealias OraRoot = NFBrowserRoot
                         }
                     }
                 }
+                NotificationCenter.default.addObserver(forName: .toggleResponsiveViewport, object: nil, queue: .main) { note in
+                    Task { @MainActor in
+                        if let source = note.object as? NSWindow {
+                            guard source === window ?? NSApp.keyWindow else { return }
+                        }
+                        guard let tab = tabManager.activeTab else { return }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            if tab.qaState.activePreset == .default {
+                                tab.qaState.selectPreset(.mobileM)
+                            } else {
+                                tab.qaState.selectPreset(.default)
+                            }
+                        }
+                    }
+                }
+                NotificationCenter.default.addObserver(forName: .toggleMultiDeviceGrid, object: nil, queue: .main) { note in
+                    Task { @MainActor in
+                        if let source = note.object as? NSWindow {
+                            guard source === window ?? NSApp.keyWindow else { return }
+                        }
+                        guard let tab = tabManager.activeTab else { return }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            tab.qaState.toggleMultiDevice()
+                        }
+                    }
+                }
+                NotificationCenter.default.addObserver(forName: .captureQAScreenshot, object: nil, queue: .main) { note in
+                    Task { @MainActor in
+                        if let source = note.object as? NSWindow {
+                            guard source === window ?? NSApp.keyWindow else { return }
+                        }
+                        guard let webView = tabManager.activeTab?.browserPage?.rawWebView else { return }
+                        do {
+                            if let _ = try await FullPageScreenshotService.shared.captureScreenshot(from: webView, copyToClipboard: true) {
+                                toastManager.show("Screenshot saved & copied", icon: .system("camera"))
+                            }
+                        } catch {
+                            toastManager.show("Failed to capture screenshot", icon: .system("exclamationmark.triangle"))
+                        }
+                    }
+                }
                 keyModifierListener.registerKeyDownHandler { event in
                     let chars = event.charactersIgnoringModifiers?.lowercased()
                     guard chars == "z" else { return false }

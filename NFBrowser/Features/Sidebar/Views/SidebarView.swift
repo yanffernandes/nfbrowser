@@ -188,11 +188,9 @@ struct SidebarView: View {
             }
 
             if !privacyMode.isPrivate {
-                HStack {
+                HStack(spacing: 4) {
                     DownloadsWidget()
-                    Spacer()
                     ContainerSwitcher(onContainerSelected: onContainerSelected)
-                    Spacer()
                     NewContainerButton()
                 }
                 .padding(.horizontal, 10)

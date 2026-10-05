@@ -277,6 +277,24 @@ enum KeyboardShortcuts {
             category: "Developer",
             defaultChord: KeyChord(keyEquivalent: .init("r"), modifiers: [.command, .shift])
         )
+        static let toggleDeviceSimulator = KeyboardShortcutDefinition(
+            id: "developer.toggleDeviceSimulator",
+            name: "Toggle Responsive Viewport",
+            category: "Developer",
+            defaultChord: KeyChord(keyEquivalent: .init("m"), modifiers: [.command, .shift])
+        )
+        static let toggleMultiDevice = KeyboardShortcutDefinition(
+            id: "developer.toggleMultiDevice",
+            name: "Toggle Multi-Device Grid",
+            category: "Developer",
+            defaultChord: KeyChord(keyEquivalent: .init("q"), modifiers: [.command, .shift])
+        )
+        static let captureScreenshot = KeyboardShortcutDefinition(
+            id: "developer.captureScreenshot",
+            name: "Capture QA Screenshot",
+            category: "Developer",
+            defaultChord: KeyChord(keyEquivalent: .init("s"), modifiers: [.command, .shift])
+        )
     }
 
     // MARK: - App
@@ -342,6 +360,7 @@ enum KeyboardShortcuts {
 
         // Developer
         Developer.toggleDevTools, Developer.reloadIgnoringCache,
+        Developer.toggleDeviceSimulator, Developer.toggleMultiDevice, Developer.captureScreenshot,
 
         // App
         App.quit, App.hide, App.preferences, App.toggleSidebar, App.toggleToolbar

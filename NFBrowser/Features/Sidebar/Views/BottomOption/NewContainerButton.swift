@@ -17,10 +17,10 @@ struct NewContainerButton: View {
         }) {
             HStack {
                 Image(systemName: "plus")
-                    .frame(width: 12, height: 12)
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(isHovering ? theme.foreground : .secondary)
             }
-            .padding(8)
+            .frame(width: 28, height: 28)
             .background(isHovering ? theme.invertedSolidWindowBackgroundColor.opacity(0.12) : .clear)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .animation(.easeInOut(duration: 0.12), value: isHovering)

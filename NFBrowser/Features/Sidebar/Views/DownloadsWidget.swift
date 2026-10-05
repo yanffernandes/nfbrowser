@@ -28,25 +28,25 @@ struct DownloadsWidget: View {
                 if hasActiveDownloads {
                     Circle()
                         .stroke(theme.accent.opacity(0.2), lineWidth: 2)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 22, height: 22)
 
                     Circle()
                         .trim(from: 0, to: totalProgress)
                         .stroke(theme.accent, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                        .frame(width: 24, height: 24)
+                        .frame(width: 22, height: 22)
                         .rotationEffect(.degrees(-90))
                         .animation(.easeOut(duration: 0.25), value: totalProgress)
                 }
 
                 if hasActiveDownloads {
                     Image(systemName: "arrow.down")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(theme.accent)
                 } else {
                     OraIcons(icon: .downloadBox, size: .md, color: .secondary)
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: 28, height: 28)
             .background(isHovered ? theme.invertedSolidWindowBackgroundColor.opacity(0.12) : .clear)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)

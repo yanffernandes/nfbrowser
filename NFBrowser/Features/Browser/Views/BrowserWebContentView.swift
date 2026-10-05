@@ -5,7 +5,7 @@ struct BrowserWebContentView: View {
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var toolbarManager: ToolbarManager
-    let tab: Tab
+    @ObservedObject var tab: Tab
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -27,29 +27,40 @@ struct BrowserWebContentView: View {
             }
 
             ZStack {
-                webContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay {
-                        if tab.isAgentActive {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.purple.opacity(0.85), Color.blue.opacity(0.65)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 2.5
-                                )
-                                .allowsHitTesting(false)
-                                .transition(.opacity)
-                        }
+                if tab.qaState.isMultiDeviceActive {
+                    MultiDeviceGridView(tab: tab) {
+                        captureScreenshot()
                     }
-                    .overlay(alignment: .top) {
-                        if tab.isAgentActive {
-                            AgentActiveIndicatorPill(statusText: tab.agentStatusMessage)
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                        }
+                    .transition(.opacity)
+                } else if tab.qaState.isViewportActive {
+                    ViewportCanvasView(tab: tab) {
+                        captureScreenshot()
                     }
+                    .transition(.opacity)
+                } else {
+                    webContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                if tab.isAgentActive {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.purple.opacity(0.85), Color.blue.opacity(0.65)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2.5
+                        )
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+
+                if tab.isAgentActive {
+                    AgentActiveIndicatorPill(statusText: tab.agentStatusMessage)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 if appState.isURLBarEditing {
                     Color.black.opacity(0.15)
@@ -66,6 +77,21 @@ struct BrowserWebContentView: View {
         }
         .animation(.easeOut(duration: 0.2), value: appState.isURLBarEditing)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.isAgentActive)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.qaState.isViewportActive)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.qaState.isMultiDeviceActive)
+    }
+
+    private func captureScreenshot() {
+        guard let webView = tab.browserPage?.rawWebView else { return }
+        Task { @MainActor in
+            do {
+                if let fileURL = try await FullPageScreenshotService.shared.captureScreenshot(from: webView, copyToClipboard: true) {
+                    ToastManager.shared.show("Screenshot copied & saved to Downloads", icon: .system("camera"))
+                }
+            } catch {
+                ToastManager.shared.show("Failed to capture screenshot", icon: .system("exclamationmark.triangle"))
+            }
+        }
     }
 
     @ViewBuilder

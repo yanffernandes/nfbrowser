@@ -654,4 +654,101 @@ struct OraTests {
         #expect(aboutBlankTab != nil)
         #expect(aboutBlankTab?.url == URL(string: "about:blank"))
     }
+
+    // MARK: - QA & Developer Mode Tests
+
+    @Test func qaViewportPresetDimensionsAndOrientation() {
+        let qaState = QAModeState()
+
+        #expect(qaState.activePreset == .default)
+        #expect(qaState.effectiveDimensions == nil)
+        #expect(!qaState.isViewportActive)
+
+        qaState.selectPreset(.mobileM)
+        #expect(qaState.isViewportActive)
+        #expect(qaState.effectiveDimensions?.width == 375)
+        #expect(qaState.effectiveDimensions?.height == 667)
+
+        // Toggle to landscape
+        qaState.toggleOrientation()
+        #expect(qaState.isLandscape)
+        #expect(qaState.effectiveDimensions?.width == 667)
+        #expect(qaState.effectiveDimensions?.height == 375)
+
+        // Reset to default
+        qaState.selectPreset(.default)
+        #expect(!qaState.isViewportActive)
+        #expect(qaState.effectiveDimensions == nil)
+    }
+
+    @Test func qaMultiDeviceGridManagement() {
+        let qaState = QAModeState()
+
+        #expect(!qaState.isMultiDeviceActive)
+        #expect(qaState.multiDevicePresets.count == 3) // Mobile M, Tablet, Laptop
+
+        qaState.toggleMultiDevice()
+        #expect(qaState.isMultiDeviceActive)
+
+        // Add a preset
+        qaState.addMultiDevicePreset(.desktop)
+        #expect(qaState.multiDevicePresets.contains(.desktop))
+
+        // Remove a preset
+        qaState.removeMultiDevicePreset(.desktop)
+        #expect(!qaState.multiDevicePresets.contains(.desktop))
+
+        // Toggle off
+        qaState.toggleMultiDevice()
+        #expect(!qaState.isMultiDeviceActive)
+    }
+
+    @Test func qaCookieJSONParsing() throws {
+        let jsonString = """
+        [
+            {
+                "name": "session_token",
+                "value": "xyz123abc",
+                "domain": ".example.com",
+                "path": "/",
+                "secure": true,
+                "httpOnly": true,
+                "expirationDate": 1893456000
+            },
+            {
+                "name": "analytics_id",
+                "value": "track_99",
+                "domain": "sub.otherdomain.org",
+                "path": "/dash",
+                "secure": false
+            }
+        ]
+        """
+        let data = Data(jsonString.utf8)
+
+        // Test with domain filter for "example.com"
+        let cookies = try CookieImportService.shared.parseJSONCookies(
+            data: data,
+            domainFilter: "example.com"
+        )
+        #expect(cookies.count == 1)
+        #expect(cookies.first?.name == "session_token")
+        #expect(cookies.first?.value == "xyz123abc")
+        #expect(cookies.first?.isSecure == true)
+
+        // Test with no domain filter (all cookies imported)
+        let allCookies = try CookieImportService.shared.parseJSONCookies(
+            data: data,
+            domainFilter: nil
+        )
+        #expect(allCookies.count == 2)
+    }
+
+    @Test func qaDeviceSyncBridgeScriptGeneration() {
+        let script = DeviceSyncBridge.injectionScript
+        #expect(script.contains("__nfSyncBridgeInstalled"))
+        #expect(script.contains("qaSyncEvent"))
+        #expect(script.contains("__nfSyncScroll"))
+    }
 }
+

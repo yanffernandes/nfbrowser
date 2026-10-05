@@ -2,6 +2,9 @@ import AppKit
 import SwiftUI
 
 struct URLBarMenuButton: View {
+    @EnvironmentObject var tabManager: TabManager
+    @EnvironmentObject var toastManager: ToastManager
+
     let foregroundColor: Color
     let onShare: (NSView, NSRect) -> Void
 
@@ -9,6 +12,11 @@ struct URLBarMenuButton: View {
     @State private var menuSourceView: NSView?
 
     private let cornerRadius: CGFloat = 8
+
+    init(foregroundColor: Color, onShare: @escaping (NSView, NSRect) -> Void) {
+        self.foregroundColor = foregroundColor
+        self.onShare = onShare
+    }
 
     var body: some View {
         Button {
@@ -40,9 +48,180 @@ struct URLBarMenuButton: View {
         guard let sourceView = menuSourceView else { return }
 
         let menu = NSMenu()
+        let activeTab = tabManager.activeTab
 
+        // 1. Profile / Space info
+        if let container = tabManager.activeContainer {
+            let profileItem = NSMenuItem(
+                title: "\(container.name)",
+                action: nil,
+                keyEquivalent: ""
+            )
+            profileItem.state = .on
+            profileItem.isEnabled = false
+            menu.addItem(profileItem)
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // 2. Viewport Size Submenu
+        let viewportItem = NSMenuItem(title: "Viewport Size", action: nil, keyEquivalent: "")
+        let viewportMenu = NSMenu(title: "Viewport Size")
+
+        for preset in ViewportPreset.allCases {
+            let item = NSMenuItem(
+                title: preset.label,
+                action: #selector(MenuActions.shareAction(_:)),
+                keyEquivalent: ""
+            )
+            if let qa = activeTab?.qaState, qa.activePreset == preset, !qa.isMultiDeviceActive {
+                item.state = .on
+            }
+            let delegate = MenuActions { [weak activeTab] in
+                guard let qa = activeTab?.qaState else { return }
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    qa.selectPreset(preset)
+                }
+            }
+            item.target = delegate
+            item.representedObject = delegate
+            viewportMenu.addItem(item)
+        }
+        viewportItem.submenu = viewportMenu
+        menu.addItem(viewportItem)
+
+        // 3. Multi-Device Grid Mode
+        let multiDeviceItem = NSMenuItem(
+            title: "Multi-Device Grid (QA)",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: "Q"
+        )
+        multiDeviceItem.keyEquivalentModifierMask = [.command, .shift]
+        if let qa = activeTab?.qaState, qa.isMultiDeviceActive {
+            multiDeviceItem.state = .on
+        }
+        let multiDeviceDelegate = MenuActions { [weak activeTab] in
+            guard let qa = activeTab?.qaState else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                qa.toggleMultiDevice()
+            }
+        }
+        multiDeviceItem.target = multiDeviceDelegate
+        multiDeviceItem.representedObject = multiDeviceDelegate
+        menu.addItem(multiDeviceItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // 4. Import Cookies Submenu
+        let importCookiesItem = NSMenuItem(title: "Import Cookies", action: nil, keyEquivalent: "")
+        let importCookiesMenu = NSMenu(title: "Import Cookies")
+
+        // From Arc Browser
+        let importArcItem = NSMenuItem(
+            title: "From Arc Browser (Current Site)",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: ""
+        )
+        let importArcDelegate = MenuActions { [weak activeTab, weak toastManager] in
+            guard let tab = activeTab else { return }
+            let domain = tab.url.host
+            Task { @MainActor in
+                do {
+                    let count = try await CookieImportService.shared.importFromArc(into: tab.container.id, domainFilter: domain)
+                    toastManager?.show("Imported \(count) cookies from Arc", icon: .system("arrow.down.doc.fill"))
+                    tab.reload()
+                } catch {
+                    toastManager?.show("Failed to read Arc cookies: \(error.localizedDescription)", icon: .system("exclamationmark.triangle"))
+                }
+            }
+        }
+        importArcItem.target = importArcDelegate
+        importArcItem.representedObject = importArcDelegate
+        importCookiesMenu.addItem(importArcItem)
+
+        // From Arc Browser (All)
+        let importArcAllItem = NSMenuItem(
+            title: "From Arc Browser (All Cookies)",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: ""
+        )
+        let importArcAllDelegate = MenuActions { [weak activeTab, weak toastManager] in
+            guard let tab = activeTab else { return }
+            Task { @MainActor in
+                do {
+                    let count = try await CookieImportService.shared.importFromArc(into: tab.container.id, domainFilter: nil)
+                    toastManager?.show("Imported \(count) total cookies from Arc", icon: .system("arrow.down.doc.fill"))
+                    tab.reload()
+                } catch {
+                    toastManager?.show("Failed to read Arc cookies", icon: .system("exclamationmark.triangle"))
+                }
+            }
+        }
+        importArcAllItem.target = importArcAllDelegate
+        importArcAllItem.representedObject = importArcAllDelegate
+        importCookiesMenu.addItem(importArcAllItem)
+
+        // From JSON File
+        let importJSONItem = NSMenuItem(
+            title: "From JSON File...",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: ""
+        )
+        let importJSONDelegate = MenuActions { [weak activeTab, weak toastManager] in
+            guard let tab = activeTab else { return }
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.json]
+            panel.allowsMultipleSelection = false
+            panel.canChooseDirectories = false
+            panel.begin { response in
+                guard response == .OK, let fileURL = panel.url, let data = try? Data(contentsOf: fileURL) else { return }
+                Task { @MainActor in
+                    do {
+                        let count = try await CookieImportService.shared.importFromJSON(data: data, into: tab.container.id, domainFilter: tab.url.host)
+                        toastManager?.show("Imported \(count) cookies from JSON", icon: .system("arrow.down.doc.fill"))
+                        tab.reload()
+                    } catch {
+                        toastManager?.show("Invalid cookie JSON file", icon: .system("exclamationmark.triangle"))
+                    }
+                }
+            }
+        }
+        importJSONItem.target = importJSONDelegate
+        importJSONItem.representedObject = importJSONDelegate
+        importCookiesMenu.addItem(importJSONItem)
+
+        importCookiesItem.submenu = importCookiesMenu
+        menu.addItem(importCookiesItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // 5. QA Quick Tools
+        let screenshotItem = NSMenuItem(
+            title: "Capture Screenshot",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: "S"
+        )
+        screenshotItem.keyEquivalentModifierMask = [.command, .shift]
+        let screenshotDelegate = MenuActions { [weak activeTab, weak toastManager] in
+            guard let webView = activeTab?.browserPage?.rawWebView else { return }
+            Task { @MainActor in
+                do {
+                    if let _ = try await FullPageScreenshotService.shared.captureScreenshot(from: webView, copyToClipboard: true) {
+                        toastManager?.show("Screenshot saved & copied", icon: .system("camera"))
+                    }
+                } catch {
+                    toastManager?.show("Failed to capture screenshot", icon: .system("exclamationmark.triangle"))
+                }
+            }
+        }
+        screenshotItem.target = screenshotDelegate
+        screenshotItem.representedObject = screenshotDelegate
+        menu.addItem(screenshotItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // 6. Share Link
         let shareItem = NSMenuItem(
-            title: "Share link",
+            title: "Share Link",
             action: #selector(MenuActions.shareAction(_:)),
             keyEquivalent: ""
         )
@@ -51,7 +230,7 @@ struct URLBarMenuButton: View {
             onShare(sourceView, rect)
         }
         shareItem.target = delegate
-        shareItem.representedObject = delegate // prevent deallocation
+        shareItem.representedObject = delegate
         menu.addItem(shareItem)
 
         let point = NSPoint(x: 0, y: sourceView.bounds.height + 4)

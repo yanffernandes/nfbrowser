@@ -11,24 +11,59 @@ struct ContainerSwitcher: View {
 
     @State private var hoveredContainer: UUID?
 
+    private let minButtonWidth: CGFloat = 22
+    private let itemSpacing: CGFloat = 3
+
     var body: some View {
         GeometryReader { geometry in
             let availableWidth = geometry.size.width
-            let totalWidth =
-                CGFloat(containers.count) * ContainerConstants.UI.normalButtonWidth + CGFloat(max(
-                    0,
-                    containers.count - 1
-                ))
-                * 2
-            let isCompact = totalWidth > availableWidth
+            let count = orderedContainers.count
+            let totalSpacing = CGFloat(max(0, count - 1)) * itemSpacing
+            let totalRequiredWidth = CGFloat(count) * minButtonWidth + totalSpacing
+            let needsScroll = count > 0 && totalRequiredWidth > availableWidth
 
-            HStack(alignment: .center, spacing: isCompact ? 4 : 2) {
-                ForEach(orderedContainers, id: \.id) { container in
-                    containerButton(for: container, isCompact: isCompact)
+            if needsScroll {
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: itemSpacing) {
+                            ForEach(orderedContainers, id: \.id) { container in
+                                containerButton(for: container)
+                                    .frame(width: 26, height: 28)
+                                    .id(container.id)
+                            }
+                        }
+                        .frame(height: 28)
+                    }
+                    .onAppear {
+                        if let activeId = tabManager.activeContainer?.id {
+                            proxy.scrollTo(activeId, anchor: .center)
+                        }
+                    }
+                    .onChange(of: tabManager.activeContainer?.id) { _, newId in
+                        if let newId {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                proxy.scrollTo(newId, anchor: .center)
+                            }
+                        }
+                    }
                 }
+            } else if count == 1 {
+                HStack {
+                    if let first = orderedContainers.first {
+                        containerButton(for: first)
+                            .frame(maxWidth: 44, maxHeight: .infinity)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else {
+                HStack(spacing: itemSpacing) {
+                    ForEach(orderedContainers, id: \.id) { container in
+                        containerButton(for: container)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(0)
         }
         .padding(0)
         .frame(height: 28)
@@ -39,26 +74,21 @@ struct ContainerSwitcher: View {
     }
 
     @ViewBuilder
-    private func containerButton(for container: TabContainer, isCompact: Bool)
-        -> some View
-    {
+    private func containerButton(for container: TabContainer) -> some View {
         let isActive = tabManager.activeContainer?.id == container.id
         let isHovered = hoveredContainer == container.id
-        let buttonSize = isCompact && !isActive ?
-            (isHovered ? ContainerConstants.UI.compactButtonWidth + 4 : ContainerConstants.UI.compactButtonWidth) :
-            ContainerConstants.UI.normalButtonWidth
 
         Button(action: {
             onContainerSelected(container)
         }) {
             Image(systemName: container.systemImage)
-                .font(.system(size: isActive ? 14 : 12, weight: isActive ? .semibold : .medium))
-                .foregroundStyle(isActive ? Color.primary : Color.secondary)
-                .frame(width: buttonSize, height: buttonSize)
-                .grayscale(!isActive && !isHovered ? 0.5 : 0)
-                .opacity(!isActive ? 0.5 : 1)
+                .font(.system(size: isActive ? 13 : 12, weight: isActive ? .semibold : .medium))
+                .foregroundStyle(isActive ? theme.foreground : theme.mutedForeground)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .grayscale(!isActive && !isHovered ? 0.35 : 0)
+                .opacity(!isActive ? 0.65 : 1)
                 .background(
-                    !isCompact && isHovered
+                    isHovered
                         ? theme.invertedSolidWindowBackgroundColor.opacity(0.12)
                         : isActive
                         ? theme.invertedSolidWindowBackgroundColor.opacity(0.18)
@@ -71,6 +101,7 @@ struct ContainerSwitcher: View {
                             .stroke(theme.invertedSolidWindowBackgroundColor.opacity(0.15), lineWidth: 1)
                         : nil
                 )
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(TactileBarButtonStyle())
         .help(container.name)

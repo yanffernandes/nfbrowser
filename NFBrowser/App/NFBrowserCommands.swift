@@ -201,6 +201,35 @@ typealias OraCommands = NFBrowserCommands
             }
         }
 
+        CommandMenu("Develop") {
+            Button("Toggle Responsive Viewport") {
+                NotificationCenter.default.post(name: .toggleResponsiveViewport, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
+
+            Button("Toggle Multi-Device Grid") {
+                NotificationCenter.default.post(name: .toggleMultiDeviceGrid, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("q", modifiers: [.command, .shift])
+
+            Button("Capture QA Screenshot") {
+                NotificationCenter.default.post(name: .captureQAScreenshot, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+
+            Divider()
+
+            Button("Clear Cache & Reload") {
+                NotificationCenter.default.post(name: .clearCacheAndReload, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+
+            Button("Clear Cookies & Reload") {
+                NotificationCenter.default.post(name: .clearCookiesAndReload, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("r", modifiers: [.command, .option, .shift])
+        }
+
         CommandMenu("Passwords") {
             Button("Manage Passwords") {
                 openPasswordsWindow()
