@@ -1,4 +1,5 @@
 import Foundation
+@preconcurrency import WebKit
 
 struct BrowserPageConfiguration {
     let userAgent: String?
@@ -29,7 +30,7 @@ struct BrowserPageConfiguration {
             userAgent: ua,
             allowsPictureInPicture: true,
             allowsJavaScript: true,
-            allowsJavaScriptWindowsAutomatically: false,
+            allowsJavaScriptWindowsAutomatically: true,
             allowsAirPlayForMediaPlayback: true,
             allowsInspectableDebugging: true,
             allowsBackForwardNavigationGestures: true,
@@ -78,12 +79,14 @@ final class BrowserEngine {
         engineKind: BrowserEngineKind = .webkit,
         profile: BrowserEngineProfile,
         configuration: BrowserPageConfiguration,
+        customConfiguration: WKWebViewConfiguration? = nil,
         delegate: BrowserPageDelegate?
     ) -> BrowserPage {
         BrowserPage(
             engineKind: engineKind,
             profile: profile,
             configuration: configuration,
+            customConfiguration: customConfiguration,
             delegate: delegate
         )
     }

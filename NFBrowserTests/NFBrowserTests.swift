@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import SwiftData
+@preconcurrency import WebKit
 @testable import NFBrowser
 import Testing
 
@@ -518,5 +520,138 @@ struct OraTests {
         tab.resetTitle()
         #expect(tab.customTitle == nil)
         #expect(tab.displayTitle == "Original Example Title")
+    }
+
+    @Test @MainActor func createTabForNewWindowInheritsContainerAndSetsActive() throws {
+        let container = try ModelConfiguration.createOraContainer(isPrivate: true)
+        let context = ModelContext(container)
+        let media = MediaController()
+        let tabManager = TabManager(modelContainer: container, modelContext: context, mediaController: media)
+
+        let initialTab = try #require(
+            tabManager.openTab(
+                url: URL(string: "https://example.com/initial")!,
+                historyManager: HistoryManager(modelContainer: container, modelContext: context),
+                isPrivate: true
+            )
+        )
+        let initialContainer = initialTab.container
+        let initialCount = initialContainer.tabs.count
+
+        let config = WKWebViewConfiguration()
+        let targetURL = URL(string: "https://example.com/app/child")!
+
+        let page = tabManager.createTabForNewWindow(
+            configuration: config,
+            targetURL: targetURL,
+            parentTab: initialTab,
+            focusAfterOpening: true
+        )
+
+        #expect(page != nil)
+        let newActiveTab = try #require(tabManager.activeTab)
+        #expect(newActiveTab.id != initialTab.id)
+        #expect(newActiveTab.url == targetURL)
+        #expect(newActiveTab.container.id == initialContainer.id)
+        #expect(newActiveTab.isWebViewReady == true)
+        #expect(newActiveTab.browserPage != nil)
+        #expect(initialContainer.tabs.count == initialCount + 1)
+    }
+
+    @Test @MainActor func delegateDidRequestOpenInNewTabOpensTabInsteadOfPeek() throws {
+        let container = try ModelConfiguration.createOraContainer(isPrivate: true)
+        let context = ModelContext(container)
+        let media = MediaController()
+        let tabManager = TabManager(modelContainer: container, modelContext: context, mediaController: media)
+
+        let historyManager = HistoryManager(modelContainer: container, modelContext: context)
+        let downloadManager = DownloadManager(modelContainer: container, modelContext: context)
+
+        let initialTab = try #require(
+            tabManager.openTab(
+                url: URL(string: "https://example.com/initial")!,
+                historyManager: historyManager,
+                downloadManager: downloadManager,
+                isPrivate: true
+            )
+        )
+
+        let delegate = TabBrowserPageDelegate()
+        delegate.tab = initialTab
+
+        let targetURL = URL(string: "https://example.com/system/newpage")!
+        let dummyPage = BrowserEngine.shared.makePage(
+            engineKind: .webkit,
+            profile: BrowserEngine.shared.makeProfile(identifier: initialTab.container.id, isPrivate: true),
+            configuration: BrowserPageConfiguration.oraDefault(userScripts: [], privacySettings: .init()),
+            delegate: nil
+        )
+
+        delegate.browserPage(dummyPage, didRequestOpenInNewTab: targetURL)
+
+        #expect(tabManager.peekTab == nil)
+        let newlyOpenedTab = tabManager.activeTab
+        #expect(newlyOpenedTab?.url == targetURL)
+        #expect(newlyOpenedTab?.id != initialTab.id)
+    }
+
+    @Test @MainActor func delegateBrowserPageDidCloseClosesTab() throws {
+        let container = try ModelConfiguration.createOraContainer(isPrivate: true)
+        let context = ModelContext(container)
+        let media = MediaController()
+        let tabManager = TabManager(modelContainer: container, modelContext: context, mediaController: media)
+
+        let historyManager = HistoryManager(modelContainer: container, modelContext: context)
+
+        let initialTab = try #require(
+            tabManager.openTab(
+                url: URL(string: "https://example.com/parent")!,
+                historyManager: historyManager,
+                isPrivate: true
+            )
+        )
+
+        let popupTab = try #require(
+            tabManager.openTab(
+                url: URL(string: "https://example.com/popup")!,
+                historyManager: historyManager,
+                insertAfter: initialTab,
+                isPrivate: true
+            )
+        )
+
+        #expect(tabManager.activeTab?.id == popupTab.id)
+
+        let delegate = TabBrowserPageDelegate()
+        delegate.tab = popupTab
+
+        let dummyPage = BrowserEngine.shared.makePage(
+            engineKind: .webkit,
+            profile: BrowserEngine.shared.makeProfile(identifier: popupTab.container.id, isPrivate: true),
+            configuration: BrowserPageConfiguration.oraDefault(userScripts: [], privacySettings: .init()),
+            delegate: nil
+        )
+
+        delegate.browserPageDidClose(dummyPage)
+
+        #expect(tabManager.activeTab?.id != popupTab.id)
+        #expect(!initialTab.container.tabs.contains(where: { $0.id == popupTab.id }))
+    }
+
+    @Test @MainActor func openTabSupportsAboutBlankWithoutHost() throws {
+        let container = try ModelConfiguration.createOraContainer(isPrivate: true)
+        let context = ModelContext(container)
+        let media = MediaController()
+        let tabManager = TabManager(modelContainer: container, modelContext: context, mediaController: media)
+
+        let historyManager = HistoryManager(modelContainer: container, modelContext: context)
+        let aboutBlankTab = tabManager.openTab(
+            url: URL(string: "about:blank")!,
+            historyManager: historyManager,
+            isPrivate: true
+        )
+
+        #expect(aboutBlankTab != nil)
+        #expect(aboutBlankTab?.url == URL(string: "about:blank"))
     }
 }

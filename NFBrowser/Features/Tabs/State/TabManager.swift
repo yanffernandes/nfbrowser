@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+@preconcurrency import WebKit
 
 // MARK: - Tab Manager
 
@@ -355,68 +356,152 @@ class TabManager: ObservableObject {
         isPrivate: Bool,
         loadSilently: Bool = false
     ) -> Tab? {
-        if let container = activeContainer {
-            if let host = url.host {
-                let faviconURL = FaviconService.shared.faviconURL(for: host)
+        guard let container = insertAfter?.container ?? activeContainer else { return nil }
 
-                let cleanHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        let host = url.host
+        let faviconURL = host.flatMap { FaviconService.shared.faviconURL(for: $0) }
+        let cleanHost = host?.hasPrefix("www.") == true ? String(host!.dropFirst(4)) : (host ?? (url.scheme == "about" ? "Nova aba" : url.absoluteString))
 
-                let newOrder: Int
-                let parentTab = insertAfter ?? (focusAfterOpening ? nil : activeTab)
-                if let parentTab, parentTab.container.id == container.id, parentTab.type == .normal {
-                    // Shift down tabs below the parent tab so the new tab is placed directly below it
-                    for tab in container.tabs where tab.type == .normal && tab.order < parentTab.order {
-                        tab.order -= 1
-                    }
-                    newOrder = parentTab.order - 1
-                } else if !focusAfterOpening {
-                    // Place at the bottom of open normal tabs
-                    let minOrder = container.tabs.filter { $0.type == .normal }.map(\.order).min() ?? 1
-                    newOrder = minOrder - 1
-                } else {
-                    // Place at the top of open normal tabs
-                    let maxOrder = container.tabs.filter { $0.type == .normal }.map(\.order).max() ?? 0
-                    newOrder = maxOrder + 1
-                }
-
-                let newTab = Tab(
-                    url: url,
-                    title: cleanHost,
-                    favicon: faviconURL,
-                    container: container,
-                    type: .normal,
-                    isPlayingMedia: false,
-                    order: newOrder,
-                    historyManager: historyManager,
-                    downloadManager: downloadManager,
-                    tabManager: self,
-                    isPrivate: isPrivate
-                )
-                modelContext.insert(newTab)
-                container.tabs.append(newTab)
-
-                if focusAfterOpening {
-                    activateTab(newTab)
-                }
-                if focusAfterOpening || loadSilently {
-                    // Initialize the WebView for the new tab (loads in background if not focused)
-                    newTab.restoreTransientState(
-                        historyManager: historyManager,
-                        downloadManager: downloadManager ?? DownloadManager(
-                            modelContainer: modelContainer,
-                            modelContext: modelContext
-                        ),
-                        tabManager: self,
-                        isPrivate: isPrivate
-                    )
-                }
-
-                container.lastAccessedAt = Date()
-                try? modelContext.save()
-                return newTab
+        let newOrder: Int
+        let parentTab = insertAfter ?? (focusAfterOpening ? nil : activeTab)
+        if let parentTab, parentTab.container.id == container.id, parentTab.type == .normal {
+            // Shift down tabs below the parent tab so the new tab is placed directly below it
+            for tab in container.tabs where tab.type == .normal && tab.order < parentTab.order {
+                tab.order -= 1
             }
+            newOrder = parentTab.order - 1
+        } else if !focusAfterOpening {
+            // Place at the bottom of open normal tabs
+            let minOrder = container.tabs.filter { $0.type == .normal }.map(\.order).min() ?? 1
+            newOrder = minOrder - 1
+        } else {
+            // Place at the top of open normal tabs
+            let maxOrder = container.tabs.filter { $0.type == .normal }.map(\.order).max() ?? 0
+            newOrder = maxOrder + 1
         }
-        return nil
+
+        let newTab = Tab(
+            url: url,
+            title: cleanHost,
+            favicon: faviconURL,
+            container: container,
+            type: .normal,
+            isPlayingMedia: false,
+            order: newOrder,
+            historyManager: historyManager,
+            downloadManager: downloadManager,
+            tabManager: self,
+            isPrivate: isPrivate
+        )
+        modelContext.insert(newTab)
+        container.tabs.append(newTab)
+
+        if focusAfterOpening {
+            activateTab(newTab)
+        }
+        if focusAfterOpening || loadSilently {
+            // Initialize the WebView for the new tab (loads in background if not focused)
+            newTab.restoreTransientState(
+                historyManager: historyManager,
+                downloadManager: downloadManager ?? DownloadManager(
+                    modelContainer: modelContainer,
+                    modelContext: modelContext
+                ),
+                tabManager: self,
+                isPrivate: isPrivate
+            )
+        }
+
+        container.lastAccessedAt = Date()
+        try? modelContext.save()
+        return newTab
+    }
+
+    @discardableResult
+    func createTabForNewWindow(
+        configuration: WKWebViewConfiguration,
+        navigationAction: WKNavigationAction,
+        parentTab: Tab,
+        focusAfterOpening: Bool = true
+    ) -> BrowserPage? {
+        createTabForNewWindow(
+            configuration: configuration,
+            targetURL: navigationAction.request.url,
+            parentTab: parentTab,
+            focusAfterOpening: focusAfterOpening
+        )
+    }
+
+    @discardableResult
+    func createTabForNewWindow(
+        configuration: WKWebViewConfiguration,
+        targetURL: URL? = nil,
+        parentTab: Tab,
+        focusAfterOpening: Bool = true
+    ) -> BrowserPage? {
+        let container = parentTab.container
+        let targetURL = targetURL ?? URL(string: "about:blank")!
+        let host = targetURL.host
+        let cleanHost = host?.hasPrefix("www.") == true ? String(host!.dropFirst(4)) : (host ?? (targetURL.scheme == "about" ? "Nova aba" : targetURL.absoluteString))
+        let faviconURL = host.flatMap { FaviconService.shared.faviconURL(for: $0) }
+
+        // Shift down tabs below the parent tab so the new tab is placed directly below it
+        let newOrder: Int
+        if parentTab.type == .normal {
+            for tab in container.tabs where tab.type == .normal && tab.order < parentTab.order {
+                tab.order -= 1
+            }
+            newOrder = parentTab.order - 1
+        } else {
+            let maxOrder = container.tabs.filter { $0.type == .normal }.map(\.order).max() ?? 0
+            newOrder = maxOrder + 1
+        }
+
+        let newTab = Tab(
+            url: targetURL,
+            title: cleanHost,
+            favicon: faviconURL,
+            container: container,
+            type: .normal,
+            isPlayingMedia: false,
+            order: newOrder,
+            historyManager: parentTab.historyManager,
+            downloadManager: parentTab.downloadManager,
+            tabManager: self,
+            isPrivate: parentTab.isPrivate
+        )
+        modelContext.insert(newTab)
+        container.tabs.append(newTab)
+
+        let engine = BrowserEngine.shared
+        let engineKind = container.engineKind
+        let profile = engine.makeProfile(engineKind: engineKind, identifier: container.id, isPrivate: parentTab.isPrivate)
+        let privacySettings = SettingsStore.shared.privacySettings(for: container.id)
+        let userScripts = OraBrowserScripts.userScripts() + BrowserPrivacyService.privacyScripts(for: privacySettings)
+        let page = engine.makePage(
+            engineKind: engineKind,
+            profile: profile,
+            configuration: BrowserPageConfiguration.oraDefault(
+                engineKind: engineKind,
+                userScripts: userScripts,
+                privacySettings: privacySettings
+            ),
+            customConfiguration: configuration,
+            delegate: nil
+        )
+
+        newTab.browserPage = page
+        newTab.setupBrowserPageDelegate(for: page)
+        newTab.isWebViewReady = true
+        newTab.syncBackgroundColorFromHex()
+
+        if focusAfterOpening {
+            activateTab(newTab)
+        }
+
+        container.lastAccessedAt = Date()
+        try? modelContext.save()
+        return page
     }
 
     // MARK: - Peek (Floating Preview)

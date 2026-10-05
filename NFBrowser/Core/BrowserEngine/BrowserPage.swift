@@ -20,13 +20,16 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
         engineKind: BrowserEngineKind = .webkit,
         profile: BrowserEngineProfile,
         configuration: BrowserPageConfiguration,
+        customConfiguration: WKWebViewConfiguration? = nil,
         delegate: BrowserPageDelegate?
     ) {
         self.engineKind = engineKind
-        let webConfiguration = WKWebViewConfiguration()
+        let webConfiguration = customConfiguration ?? WKWebViewConfiguration()
         // Do NOT use applicationNameForUserAgent with a full UA string,
         // as WebKit appends it to its default UA. We set webView.customUserAgent directly.
-        webConfiguration.websiteDataStore = profile.dataStore
+        if customConfiguration == nil {
+            webConfiguration.websiteDataStore = profile.dataStore
+        }
         webConfiguration.allowsAirPlayForMediaPlayback = configuration.allowsAirPlayForMediaPlayback
         webConfiguration.preferences.setValue(
             configuration.allowsInspectableDebugging,
@@ -123,6 +126,10 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
     }
 
     var contentView: NSView {
+        webView
+    }
+
+    var rawWebView: WKWebView {
         webView
     }
 
@@ -467,10 +474,22 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        if let url = navigationAction.request.url {
+        if let newPage = delegate?.browserPage(
+            self,
+            createWebViewWith: configuration,
+            for: navigationAction,
+            windowFeatures: windowFeatures
+        ) {
+            return newPage.rawWebView
+        }
+        if let url = navigationAction.request.url, !url.absoluteString.isEmpty {
             delegate?.browserPage(self, didRequestOpenInNewTab: url)
         }
         return nil
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        delegate?.browserPageDidClose(self)
     }
 
     func webView(

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+@preconcurrency import WebKit
 
 final class TabBrowserPageDelegate: BrowserPageDelegate {
     weak var tab: Tab?
@@ -42,15 +43,61 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
         return .openInNewTab
     }
 
+    func browserPage(
+        _ page: BrowserPage,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> BrowserPage? {
+        guard let tab, let tabManager = tab.tabManager else { return nil }
+
+        // If user held Shift+Command, they explicitly requested Peek preview
+        if navigationAction.modifierFlags.contains(.command) && navigationAction.modifierFlags.contains(.shift),
+           let url = navigationAction.request.url {
+            MainActor.assumeIsolated {
+                tabManager.openPeek(url: url)
+            }
+            return nil
+        }
+
+        let shouldFocus = !navigationAction.modifierFlags.contains(.command)
+
+        return MainActor.assumeIsolated {
+            tabManager.createTabForNewWindow(
+                configuration: configuration,
+                navigationAction: navigationAction,
+                parentTab: tab,
+                focusAfterOpening: shouldFocus
+            )
+        }
+    }
+
+    func browserPageDidClose(_ page: BrowserPage) {
+        guard let tab, let tabManager = tab.tabManager else { return }
+        MainActor.assumeIsolated {
+            tabManager.closeTab(tab: tab)
+        }
+    }
+
     func browserPage(_ page: BrowserPage, didRequestOpenInNewTab url: URL) {
         guard let tab,
-              let tabManager = tab.tabManager
+              let tabManager = tab.tabManager,
+              let historyManager = tab.historyManager,
+              let downloadManager = tab.downloadManager
         else {
             return
         }
 
         MainActor.assumeIsolated {
-            tabManager.openPeek(url: url)
+            _ = tabManager.openTab(
+                url: url,
+                historyManager: historyManager,
+                downloadManager: downloadManager,
+                insertAfter: tab,
+                focusAfterOpening: true,
+                isPrivate: tab.isPrivate,
+                loadSilently: false
+            )
         }
     }
 
