@@ -45,11 +45,55 @@ struct QAControlStrip: View {
             }
             .menuStyle(BorderlessButtonMenuStyle())
 
-            // Dimensions badge
+            // Dimensions badge / inputs
             if let dims = qaState.effectiveDimensions {
-                Text("\(Int(dims.width)) × \(Int(dims.height))")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.75))
+                HStack(spacing: 3) {
+                    TextField(
+                        "W",
+                        text: Binding(
+                            get: { "\(Int(dims.width))" },
+                            set: { newValue in
+                                if let val = Double(newValue), val > 0 {
+                                    qaState.customWidth = CGFloat(val)
+                                    qaState.customHeight = dims.height
+                                    qaState.activePreset = .custom
+                                }
+                            }
+                        )
+                    )
+                    .frame(width: 38)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+
+                    Text("×")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.4))
+
+                    TextField(
+                        "H",
+                        text: Binding(
+                            get: { "\(Int(dims.height))" },
+                            set: { newValue in
+                                if let val = Double(newValue), val > 0 {
+                                    qaState.customWidth = dims.width
+                                    qaState.customHeight = CGFloat(val)
+                                    qaState.activePreset = .custom
+                                }
+                            }
+                        )
+                    )
+                    .frame(width: 38)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2.5)
+                .background(Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             } else {
                 Text("Full Window")
                     .font(.system(size: 11, design: .monospaced))

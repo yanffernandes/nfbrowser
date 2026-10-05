@@ -67,14 +67,14 @@ private struct TabWebContentHost: View {
                     onCaptureScreenshot()
                 }
                 .transition(.opacity)
-            } else if qaState.isViewportActive {
-                ViewportCanvasView(tab: tab, qaState: qaState) {
-                    onCaptureScreenshot()
-                }
-                .transition(.opacity)
             } else {
-                webContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ViewportCanvasView(
+                    tab: tab,
+                    qaState: qaState,
+                    onScreenshot: onCaptureScreenshot
+                ) {
+                    webContent
+                }
             }
 
             if tab.isAgentActive {

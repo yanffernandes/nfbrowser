@@ -247,7 +247,7 @@ struct MultiDeviceGridView: View {
             // Device Frame with isolated web content
             ZStack(alignment: .topLeading) {
                 MultiDeviceWebViewHost(
-                    url: tab.url,
+                    url: tab.currentPageURL ?? tab.url,
                     preset: preset,
                     spaceID: tab.container.id,
                     engineKind: tab.container.engineKind,

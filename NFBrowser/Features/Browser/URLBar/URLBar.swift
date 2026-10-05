@@ -240,6 +240,23 @@ struct URLBar: View {
                 )
 
                 URLBarButton(
+                    systemName: tab.qaState.isViewportActive ? "laptopcomputer.and.iphone" : "display.2",
+                    isEnabled: true,
+                    foregroundColor: tab.qaState.isViewportActive ? Color.accentColor : buttonForegroundColor,
+                    action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            if tab.qaState.isViewportActive {
+                                tab.qaState.resetToDefault()
+                            } else {
+                                tab.qaState.isQAActive = true
+                                tab.qaState.selectPreset(.mobileM)
+                            }
+                        }
+                    }
+                )
+                .help(tab.qaState.isViewportActive ? "Exit QA & Viewport Mode (Esc)" : "Toggle QA & Viewport Simulator (Cmd+Shift+M)")
+
+                URLBarButton(
                     systemName: tabManager.splitTab == nil ? "rectangle.split.2x1" : "rectangle.split.2x1.fill",
                     isEnabled: true,
                     foregroundColor: tabManager.splitTab != nil ? Color.accentColor : buttonForegroundColor,

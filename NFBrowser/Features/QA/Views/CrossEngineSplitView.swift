@@ -174,7 +174,7 @@ struct CrossEngineSplitView: View {
 
             // Webview frame
             EngineWebViewHost(
-                url: tab.url,
+                url: tab.currentPageURL ?? tab.url,
                 engineKind: engineKind,
                 spaceID: tab.container.id,
                 onWebViewCreated: { wv in

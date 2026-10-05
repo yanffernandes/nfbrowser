@@ -71,6 +71,10 @@ final class QAModeState: ObservableObject {
             isMultiDeviceActive = false
             isCrossEngineActive = false
             activePreset = preset
+            if preset != .custom, let d = preset.dimensions {
+                customWidth = d.width
+                customHeight = d.height
+            }
         }
     }
 
