@@ -8,12 +8,15 @@ final class QAModeState: ObservableObject {
     @Published var customHeight: CGFloat = 667
     @Published var zoomScale: CGFloat = 1.0
     @Published var isMultiDeviceActive: Bool = false
+    @Published var isCrossEngineActive: Bool = false
     @Published var multiDevicePresets: [ViewportPreset] = [.mobileM, .tablet, .laptop]
     @Published var isSyncEnabled: Bool = true
-    @Published var isDarkModeForced: Bool? = nil
+    @Published var activeVisionFilter: VisionDefectFilter = .none
+    @Published var forcedColorScheme: ForcedColorScheme = .system
+    @Published var discoveredBreakpoints: [Int] = []
 
     var isViewportActive: Bool {
-        activePreset != .default || isMultiDeviceActive
+        activePreset != .default || isMultiDeviceActive || isCrossEngineActive
     }
 
     var effectiveDimensions: CGSize? {
@@ -46,8 +49,11 @@ final class QAModeState: ObservableObject {
     func resetToDefault() {
         activePreset = .default
         isMultiDeviceActive = false
+        isCrossEngineActive = false
         isLandscape = false
         zoomScale = 1.0
+        activeVisionFilter = .none
+        forcedColorScheme = .system
     }
 
     func selectPreset(_ preset: ViewportPreset) {
@@ -55,6 +61,7 @@ final class QAModeState: ObservableObject {
             resetToDefault()
         } else {
             isMultiDeviceActive = false
+            isCrossEngineActive = false
             activePreset = preset
         }
     }
@@ -63,6 +70,15 @@ final class QAModeState: ObservableObject {
         isMultiDeviceActive.toggle()
         if isMultiDeviceActive {
             activePreset = .default
+            isCrossEngineActive = false
+        }
+    }
+
+    func toggleCrossEngine() {
+        isCrossEngineActive.toggle()
+        if isCrossEngineActive {
+            activePreset = .default
+            isMultiDeviceActive = false
         }
     }
 

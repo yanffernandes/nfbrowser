@@ -212,6 +212,11 @@ typealias OraCommands = NFBrowserCommands
             }
             .keyboardShortcut("q", modifiers: [.command, .shift])
 
+            Button("Toggle Cross-Engine Compare") {
+                NotificationCenter.default.post(name: .toggleCrossEngine, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut("e", modifiers: [.command, .option])
+
             Button("Capture QA Screenshot") {
                 NotificationCenter.default.post(name: .captureQAScreenshot, object: NSApp.keyWindow)
             }

@@ -295,6 +295,12 @@ enum KeyboardShortcuts {
             category: "Developer",
             defaultChord: KeyChord(keyEquivalent: .init("s"), modifiers: [.command, .shift])
         )
+        static let toggleCrossEngine = KeyboardShortcutDefinition(
+            id: "developer.toggleCrossEngine",
+            name: "Toggle Cross-Engine Compare",
+            category: "Developer",
+            defaultChord: KeyChord(keyEquivalent: .init("e"), modifiers: [.command, .option])
+        )
     }
 
     // MARK: - App
@@ -361,6 +367,7 @@ enum KeyboardShortcuts {
         // Developer
         Developer.toggleDevTools, Developer.reloadIgnoringCache,
         Developer.toggleDeviceSimulator, Developer.toggleMultiDevice, Developer.captureScreenshot,
+        Developer.toggleCrossEngine,
 
         // App
         App.quit, App.hide, App.preferences, App.toggleSidebar, App.toggleToolbar

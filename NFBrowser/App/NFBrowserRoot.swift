@@ -251,6 +251,17 @@ typealias OraRoot = NFBrowserRoot
                         }
                     }
                 }
+                NotificationCenter.default.addObserver(forName: .toggleCrossEngine, object: nil, queue: .main) { note in
+                    Task { @MainActor in
+                        if let source = note.object as? NSWindow {
+                            guard source === window ?? NSApp.keyWindow else { return }
+                        }
+                        guard let tab = tabManager.activeTab else { return }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            tab.qaState.toggleCrossEngine()
+                        }
+                    }
+                }
                 NotificationCenter.default.addObserver(forName: .captureQAScreenshot, object: nil, queue: .main) { note in
                     Task { @MainActor in
                         if let source = note.object as? NSWindow {

@@ -750,5 +750,39 @@ struct OraTests {
         #expect(script.contains("qaSyncEvent"))
         #expect(script.contains("__nfSyncScroll"))
     }
+
+    @Test func qaCrossEngineToggleAndMutualExclusivity() {
+        let qaState = QAModeState()
+
+        #expect(!qaState.isCrossEngineActive)
+        qaState.toggleCrossEngine()
+        #expect(qaState.isCrossEngineActive)
+        #expect(qaState.isViewportActive)
+        #expect(!qaState.isMultiDeviceActive)
+        #expect(qaState.activePreset == .default)
+
+        // Selecting preset turns off cross-engine
+        qaState.selectPreset(.tablet)
+        #expect(!qaState.isCrossEngineActive)
+        #expect(qaState.activePreset == .tablet)
+
+        // Toggling multi-device turns off preset and cross-engine
+        qaState.toggleMultiDevice()
+        #expect(qaState.isMultiDeviceActive)
+        #expect(!qaState.isCrossEngineActive)
+    }
+
+    @Test func qaBreakpointScannerScriptIntegrity() {
+        let script = BreakpointScanner.extractionScript
+        #expect(script.contains("document.styleSheets"))
+        #expect(script.contains("min-width"))
+        #expect(script.contains("max-width"))
+    }
+
+    @Test func qaAccessibilityFilterOptions() {
+        #expect(VisionDefectFilter.allCases.count >= 6)
+        #expect(ForcedColorScheme.allCases.count == 3)
+    }
 }
+
 

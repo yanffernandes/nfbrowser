@@ -109,9 +109,29 @@ struct URLBarMenuButton: View {
         multiDeviceItem.representedObject = multiDeviceDelegate
         menu.addItem(multiDeviceItem)
 
+        // 4. Cross-Engine Compare Mode
+        let crossEngineItem = NSMenuItem(
+            title: "Cross-Engine Compare (WebKit vs Chromium)",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: "e"
+        )
+        crossEngineItem.keyEquivalentModifierMask = [.command, .option]
+        if let qa = activeTab?.qaState, qa.isCrossEngineActive {
+            crossEngineItem.state = .on
+        }
+        let crossEngineDelegate = MenuActions { [weak activeTab] in
+            guard let qa = activeTab?.qaState else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                qa.toggleCrossEngine()
+            }
+        }
+        crossEngineItem.target = crossEngineDelegate
+        crossEngineItem.representedObject = crossEngineDelegate
+        menu.addItem(crossEngineItem)
+
         menu.addItem(NSMenuItem.separator())
 
-        // 4. Import Cookies Submenu
+        // 5. Import Cookies Submenu
         let importCookiesItem = NSMenuItem(title: "Import Cookies", action: nil, keyEquivalent: "")
         let importCookiesMenu = NSMenu(title: "Import Cookies")
 
@@ -159,6 +179,51 @@ struct URLBarMenuButton: View {
         importArcAllItem.target = importArcAllDelegate
         importArcAllItem.representedObject = importArcAllDelegate
         importCookiesMenu.addItem(importArcAllItem)
+
+        // From Google Chrome (Current Site)
+        let importChromeItem = NSMenuItem(
+            title: "From Google Chrome (Current Site)",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: ""
+        )
+        let importChromeDelegate = MenuActions { [weak activeTab, weak toastManager] in
+            guard let tab = activeTab else { return }
+            let domain = tab.url.host
+            Task { @MainActor in
+                do {
+                    let count = try await CookieImportService.shared.importFromChrome(into: tab.container.id, domainFilter: domain)
+                    toastManager?.show("Imported \(count) cookies from Chrome", icon: .system("arrow.down.doc.fill"))
+                    tab.reload()
+                } catch {
+                    toastManager?.show("Failed to read Chrome cookies: \(error.localizedDescription)", icon: .system("exclamationmark.triangle"))
+                }
+            }
+        }
+        importChromeItem.target = importChromeDelegate
+        importChromeItem.representedObject = importChromeDelegate
+        importCookiesMenu.addItem(importChromeItem)
+
+        // From Google Chrome (All Cookies)
+        let importChromeAllItem = NSMenuItem(
+            title: "From Google Chrome (All Cookies)",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: ""
+        )
+        let importChromeAllDelegate = MenuActions { [weak activeTab, weak toastManager] in
+            guard let tab = activeTab else { return }
+            Task { @MainActor in
+                do {
+                    let count = try await CookieImportService.shared.importFromChrome(into: tab.container.id, domainFilter: nil)
+                    toastManager?.show("Imported \(count) total cookies from Chrome", icon: .system("arrow.down.doc.fill"))
+                    tab.reload()
+                } catch {
+                    toastManager?.show("Failed to read Chrome cookies", icon: .system("exclamationmark.triangle"))
+                }
+            }
+        }
+        importChromeAllItem.target = importChromeAllDelegate
+        importChromeAllItem.representedObject = importChromeAllDelegate
+        importCookiesMenu.addItem(importChromeAllItem)
 
         // From JSON File
         let importJSONItem = NSMenuItem(
@@ -216,6 +281,58 @@ struct URLBarMenuButton: View {
         screenshotItem.target = screenshotDelegate
         screenshotItem.representedObject = screenshotDelegate
         menu.addItem(screenshotItem)
+
+        // 6. Vision Defect Submenu
+        let visionItem = NSMenuItem(title: "Emulate Vision Defect", action: nil, keyEquivalent: "")
+        let visionMenu = NSMenu(title: "Emulate Vision Defect")
+        for filter in VisionDefectFilter.allCases {
+            let item = NSMenuItem(
+                title: filter.rawValue,
+                action: #selector(MenuActions.shareAction(_:)),
+                keyEquivalent: ""
+            )
+            if let qa = activeTab?.qaState, qa.activeVisionFilter == filter {
+                item.state = .on
+            }
+            let delegate = MenuActions { [weak activeTab] in
+                guard let tab = activeTab else { return }
+                tab.qaState.activeVisionFilter = filter
+                if let webView = tab.browserPage?.rawWebView {
+                    AccessibilityFilterService.shared.applyFilter(filter, to: webView)
+                }
+            }
+            item.target = delegate
+            item.representedObject = delegate
+            visionMenu.addItem(item)
+        }
+        visionItem.submenu = visionMenu
+        menu.addItem(visionItem)
+
+        // 7. Force Color Scheme Submenu
+        let schemeItem = NSMenuItem(title: "Emulate Color Scheme", action: nil, keyEquivalent: "")
+        let schemeMenu = NSMenu(title: "Emulate Color Scheme")
+        for scheme in ForcedColorScheme.allCases {
+            let item = NSMenuItem(
+                title: scheme.rawValue,
+                action: #selector(MenuActions.shareAction(_:)),
+                keyEquivalent: ""
+            )
+            if let qa = activeTab?.qaState, qa.forcedColorScheme == scheme {
+                item.state = .on
+            }
+            let delegate = MenuActions { [weak activeTab] in
+                guard let tab = activeTab else { return }
+                tab.qaState.forcedColorScheme = scheme
+                if let webView = tab.browserPage?.rawWebView {
+                    AccessibilityFilterService.shared.applyColorScheme(scheme, to: webView)
+                }
+            }
+            item.target = delegate
+            item.representedObject = delegate
+            schemeMenu.addItem(item)
+        }
+        schemeItem.submenu = schemeMenu
+        menu.addItem(schemeItem)
 
         menu.addItem(NSMenuItem.separator())
 

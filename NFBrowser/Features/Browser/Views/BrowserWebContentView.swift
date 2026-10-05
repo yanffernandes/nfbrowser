@@ -32,6 +32,11 @@ struct BrowserWebContentView: View {
                         captureScreenshot()
                     }
                     .transition(.opacity)
+                } else if tab.qaState.isCrossEngineActive {
+                    CrossEngineSplitView(tab: tab) {
+                        captureScreenshot()
+                    }
+                    .transition(.opacity)
                 } else if tab.qaState.isViewportActive {
                     ViewportCanvasView(tab: tab) {
                         captureScreenshot()

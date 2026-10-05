@@ -39,6 +39,7 @@ extension Notification.Name {
     // QA & Developer Mode
     static let toggleResponsiveViewport = Notification.Name("ToggleResponsiveViewport")
     static let toggleMultiDeviceGrid = Notification.Name("ToggleMultiDeviceGrid")
+    static let toggleCrossEngine = Notification.Name("ToggleCrossEngine")
     static let captureQAScreenshot = Notification.Name("CaptureQAScreenshot")
 
     /// App lifecycle
