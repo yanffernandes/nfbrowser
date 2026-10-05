@@ -45,7 +45,7 @@ struct ContainerForm: View {
                     in: RoundedRectangle(cornerRadius: ContainerConstants.UI.cornerRadius)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .help("Choose space icon")
         .accessibilityLabel("Choose space icon")
         .menuStyle(.borderlessButton)

@@ -60,7 +60,7 @@ struct PasswordAutofillOverlayView: View {
             Button("Manage Passwords") {
                 tab.passwordCoordinator?.openPasswordsManager()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileButtonStyle(pressedScale: 0.98))
             .font(.caption.weight(.medium))
             .foregroundStyle(Color(nsColor: .secondaryLabelColor))
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -169,7 +169,7 @@ struct PasswordAutofillTriggerView: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
             .onHover { isHovering = $0 }
             .offset(
                 x: triggerX(in: proxy.size),
@@ -218,7 +218,7 @@ private struct PasswordSuggestionButton<Content: View>: View {
             .background(Color(nsColor: .controlBackgroundColor).opacity(isHovering || isSelected ? 1 : 0))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileCardButtonStyle())
         .onHover { isHovering in
             self.isHovering = isHovering
             onHoverChanged(isHovering)

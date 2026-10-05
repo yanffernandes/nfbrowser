@@ -27,7 +27,7 @@ struct DownloadProgressView: View {
                                 .foregroundColor(.secondary)
                                 .frame(width: 14, height: 14)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(TactileBarButtonStyle())
                     }
                 }
 

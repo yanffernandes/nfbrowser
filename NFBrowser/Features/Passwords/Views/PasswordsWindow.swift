@@ -363,7 +363,7 @@ private struct PasswordsWindowView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(theme.mutedForeground)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .help(revealedPasswordIDs[entry.id] == nil ? "Reveal password" : "Hide password")
 
                 copyActionButton(help: "Copy password") {
@@ -379,7 +379,7 @@ private struct PasswordsWindowView: View {
                     Image(systemName: "trash")
                         .font(.system(size: 13, weight: .medium))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .help("Delete saved password")
             }
             .frame(width: actionsColumnWidth, alignment: .leading)
@@ -404,7 +404,7 @@ private struct PasswordsWindowView: View {
                 color: theme.mutedForeground
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .help(help)
     }
 

@@ -131,7 +131,7 @@ struct TabItem: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TabItemButtonStyle())
             .simultaneousGesture(
                 TapGesture(count: 2).onEnded {
                     tab.promptRename()

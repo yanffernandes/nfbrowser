@@ -59,7 +59,7 @@ struct PeekOverlayView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .disabled(!tab.canGoBack)
                 .opacity(tab.canGoBack ? 1.0 : 0.35)
                 .help("Go Back")
@@ -70,7 +70,7 @@ struct PeekOverlayView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .disabled(!tab.canGoForward)
                 .opacity(tab.canGoForward ? 1.0 : 0.35)
                 .help("Go Forward")
@@ -81,7 +81,7 @@ struct PeekOverlayView: View {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .help("Reload")
             }
             .foregroundStyle(theme.mutedForeground)
@@ -122,7 +122,7 @@ struct PeekOverlayView: View {
                 .overlay(Capsule().stroke(Color.accentColor.opacity(0.50), lineWidth: 0.5))
                 .foregroundStyle(Color.accentColor)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileButtonStyle(pressedScale: 0.96))
             .help("Promote to a permanent tab in sidebar")
 
             // Copy Link
@@ -134,7 +134,7 @@ struct PeekOverlayView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(theme.mutedForeground)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
             .help("Copy link")
         }
         .padding(.horizontal, 14)
@@ -160,7 +160,7 @@ struct PeekOverlayView: View {
                     .background(Color.black.opacity(0.70), in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.20), lineWidth: 1))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
             .keyboardShortcut(.cancelAction)
             .help("Close Peek (Esc)")
 
@@ -175,7 +175,7 @@ struct PeekOverlayView: View {
                     .background(Color.black.opacity(0.70), in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.20), lineWidth: 1))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
             .help("Open as full tab")
 
             // Dock to Sidebar
@@ -189,7 +189,7 @@ struct PeekOverlayView: View {
                     .background(Color.black.opacity(0.70), in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.20), lineWidth: 1))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
             .help("Keep as sidebar tab")
         }
     }

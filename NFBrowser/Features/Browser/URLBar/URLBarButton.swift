@@ -33,12 +33,3 @@ struct URLBarButton: View {
         }
     }
 }
-
-struct TactileBarButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}

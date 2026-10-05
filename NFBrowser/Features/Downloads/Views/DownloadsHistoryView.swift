@@ -57,7 +57,7 @@ struct DownloadsHistoryView: View {
                     .frame(alignment: .center)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .onHover { isClearHovered = $0 }
             }
         }
@@ -91,7 +91,7 @@ struct DownloadsHistoryView: View {
                 }
                 .foregroundColor(theme.foreground.opacity(0.7))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
 
             Spacer()
         }

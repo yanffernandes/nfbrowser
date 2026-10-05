@@ -256,7 +256,7 @@ struct FindView: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(theme.foreground.opacity(0.6))
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(TactileBarButtonStyle())
     }
 
     private var backgroundView: some View {

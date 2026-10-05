@@ -62,32 +62,32 @@ struct BrowserTabSplitContainer: View {
 
                 // Swap Split View Sides
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
                         tabManager.swapSplitTabs()
                     }
                 }) {
                     Image(systemName: "arrow.left.arrow.right")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.white.opacity(0.85))
                         .padding(4)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .help("Swap Left and Right Tabs")
 
                 // Close Split View
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                         tabManager.closeSplitTab()
                     }
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.white.opacity(0.85))
                         .padding(5)
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.white.opacity(0.12))
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .help("Close Split View (Esc)")
             }
             .padding(.horizontal, 10)

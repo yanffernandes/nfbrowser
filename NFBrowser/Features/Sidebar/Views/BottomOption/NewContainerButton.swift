@@ -164,8 +164,9 @@ struct EngineOptionButton: View {
             .foregroundColor(foregroundColor)
             .cornerRadius(7)
             .overlay(borderOverlay)
+            .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileCardButtonStyle())
     }
 
     private var backgroundColor: Color {

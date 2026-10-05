@@ -56,7 +56,7 @@ struct RenameTabModal: View {
                             }
                             .foregroundColor(theme.mutedForeground)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(TactileButtonStyle(pressedScale: 0.96))
                     }
 
                     Spacer()

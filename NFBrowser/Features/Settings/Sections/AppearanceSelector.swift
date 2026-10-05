@@ -42,9 +42,10 @@ struct AppearanceSelector: View {
                                 .fill(isSelected ? Color(.controlColor) : Color.clear)
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(TactileCardButtonStyle())
                 }
             }
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: selection)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

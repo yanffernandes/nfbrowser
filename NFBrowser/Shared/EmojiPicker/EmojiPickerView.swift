@@ -51,7 +51,7 @@ struct EmojiPickerView: View {
                             .font(.system(size: 16))
                             .foregroundColor(viewModel.selectedCategory == category.category ? .blue : .gray)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(TactileBarButtonStyle())
                     .padding(4)
 
                     Spacer()

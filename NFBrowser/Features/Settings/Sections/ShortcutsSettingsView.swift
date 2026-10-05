@@ -120,9 +120,9 @@ struct ShortcutRowView: View {
                         }
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileButtonStyle(pressedScale: 0.98))
             .scaleEffect(isEditing ? 1.02 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: isEditing)
+            .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isEditing)
         }
         .padding(.vertical, 4)
     }

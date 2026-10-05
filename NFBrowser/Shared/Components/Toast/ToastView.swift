@@ -205,7 +205,7 @@ struct ToastItemView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(theme.foreground.opacity(0.4))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -217,7 +217,7 @@ struct ToastItemView: View {
         .clipShape(ConditionallyConcentricRectangle(cornerRadius: 14))
         .overlay(
             ConditionallyConcentricRectangle(cornerRadius: 14)
-                .stroke(theme.border.opacity(0.5), lineWidth: 0.5)
+                .stroke(theme.invertedSolidWindowBackgroundColor.opacity(0.12), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
     }

@@ -20,7 +20,7 @@ struct DownloadsListView: View {
                     }
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                    .buttonStyle(.plain)
+                    .buttonStyle(TactileBarButtonStyle())
                 }
             }
             .padding(.horizontal, 12)
@@ -131,7 +131,7 @@ struct DownloadListItem: View {
                             .foregroundColor(.secondary)
                             .frame(width: 16, height: 16)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(TactileBarButtonStyle())
                 } else if download.status == .completed {
                     Button(action: {
                         downloadManager.openDownloadInFinder(download)
@@ -140,7 +140,7 @@ struct DownloadListItem: View {
                             .foregroundColor(.secondary)
                             .frame(width: 16, height: 16)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(TactileBarButtonStyle())
                 }
             }
         }
