@@ -8,6 +8,7 @@ extension Notification.Name {
     static let showLauncher = Notification.Name("ShowLauncher")
     static let closeActiveTab = Notification.Name("CloseActiveTab")
     static let restoreLastTab = Notification.Name("RestoreLastTab")
+    static let tabClosedOrChanged = Notification.Name("TabClosedOrChanged")
     static let findInPage = Notification.Name("FindInPage")
     static let toggleFullURL = Notification.Name("ToggleFullURL")
     static let reloadPage = Notification.Name("ReloadPage")

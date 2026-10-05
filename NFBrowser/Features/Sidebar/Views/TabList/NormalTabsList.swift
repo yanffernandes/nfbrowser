@@ -47,9 +47,9 @@ struct NormalTabsList: View {
                 )
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .bottom)),
-                    removal: .opacity.combined(with: .move(edge: .top))
+                    removal: .opacity
                 ))
-                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldAnimate(tab))
+                .animation(.spring(response: 0.22, dampingFraction: 0.85), value: tabs.map(\.id))
             }
         }
         .onDrop(

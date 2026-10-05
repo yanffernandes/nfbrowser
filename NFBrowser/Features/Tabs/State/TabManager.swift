@@ -539,6 +539,7 @@ class TabManager: ObservableObject {
 
         // Immediately remove from container and modelContext so UI updates instantly (0ms)
         tab.container.tabs.removeAll { $0.id == tab.id }
+        NotificationCenter.default.post(name: .tabClosedOrChanged, object: nil)
         if tab.type == .normal {
             self.modelContext.delete(tab)
         } else {

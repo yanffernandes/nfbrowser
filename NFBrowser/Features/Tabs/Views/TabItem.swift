@@ -133,12 +133,9 @@ struct TabItem: View {
             }
             .buttonStyle(.plain)
 
-            if isHovering {
-                actionButton
-            } else {
-                Color.clear
-                    .frame(width: 20, height: 20)
-            }
+            actionButton
+                .opacity(isHovering ? 1.0 : 0.0)
+                .allowsHitTesting(isHovering)
         }
         .padding(.leading, 8)
         .padding(.trailing, 6)
@@ -176,6 +173,9 @@ struct TabItem: View {
                     style: StrokeStyle(lineWidth: 1, dash: [5, 5])
                 )
                 : nil
+        )
+        .background(
+            PreciseHoverArea(isHovered: $isHovering)
         )
         .onHover { isHovering = $0 }
         .contextMenu { contextMenuItems }
@@ -296,9 +296,10 @@ struct ActionButton: View {
                     Circle()
                         .fill(isHovering ? Color.white.opacity(0.22) : Color.clear)
                 )
-                .contentShape(Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(PreciseHoverArea(isHovered: $isHovering))
         .onHover { isHovering = $0 }
     }
 }
