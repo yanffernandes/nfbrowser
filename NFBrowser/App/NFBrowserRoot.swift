@@ -278,6 +278,20 @@ typealias OraRoot = NFBrowserRoot
                     }
                 }
                 keyModifierListener.registerKeyDownHandler { event in
+                    // Esc exits QA mode if active
+                    if event.keyCode == 53 {
+                        if let responder = NSApp.keyWindow?.firstResponder,
+                           responder is NSTextView || responder is NSTextField {
+                            return false
+                        }
+                        if let tab = tabManager.activeTab, tab.qaState.isViewportActive {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                tab.qaState.resetToDefault()
+                            }
+                            return true
+                        }
+                    }
+
                     let chars = event.charactersIgnoringModifiers?.lowercased()
                     guard chars == "z" else { return false }
 

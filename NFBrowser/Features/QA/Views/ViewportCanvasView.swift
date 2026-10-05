@@ -6,9 +6,9 @@ struct ViewportCanvasView: View {
     @ObservedObject var qaState: QAModeState
     let onScreenshot: () -> Void
 
-    init(tab: Tab, onScreenshot: @escaping () -> Void) {
+    init(tab: Tab, qaState: QAModeState? = nil, onScreenshot: @escaping () -> Void) {
         self.tab = tab
-        self.qaState = tab.qaState
+        self.qaState = qaState ?? tab.qaState
         self.onScreenshot = onScreenshot
     }
 
@@ -19,7 +19,7 @@ struct ViewportCanvasView: View {
                 Color(red: 0.09, green: 0.09, blue: 0.11)
                     .ignoresSafeArea()
 
-                // Center device container
+                // Center device container or full window
                 if let dims = qaState.effectiveDimensions, let page = tab.browserPage {
                     let availableHeight = max(geometry.size.height - 100, 200)
                     let availableWidth = max(geometry.size.width - 40, 200)
@@ -69,6 +69,10 @@ struct ViewportCanvasView: View {
                         Spacer(minLength: 20)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let page = tab.browserPage {
+                    // Default Viewport (Full Window live browsing)
+                    BrowserPageView(page: page)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
                 // Floating Control Strip docked at top

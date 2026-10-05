@@ -50,6 +50,10 @@ struct QAControlStrip: View {
                 Text("\(Int(dims.width)) × \(Int(dims.height))")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.75))
+            } else {
+                Text("Full Window")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.65))
             }
 
             // Discovered Breakpoint pills (if any)

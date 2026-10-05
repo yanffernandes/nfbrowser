@@ -102,8 +102,11 @@ final class DeviceSyncBridge: NSObject, WKScriptMessageHandler {
         peers.removeAll { $0.id == id }
     }
 
+    var isEnabled: Bool = true
+
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.name == Self.messageName,
+        guard isEnabled,
+              message.name == Self.messageName,
               let dict = message.body as? [String: Any],
               let type = dict["type"] as? String,
               !isDispatching

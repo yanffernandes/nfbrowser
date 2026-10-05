@@ -26,64 +26,12 @@ struct BrowserWebContentView: View {
                 )
             }
 
-            ZStack {
-                if tab.qaState.isMultiDeviceActive {
-                    MultiDeviceGridView(tab: tab) {
-                        captureScreenshot()
-                    }
-                    .transition(.opacity)
-                } else if tab.qaState.isCrossEngineActive {
-                    CrossEngineSplitView(tab: tab) {
-                        captureScreenshot()
-                    }
-                    .transition(.opacity)
-                } else if tab.qaState.isViewportActive {
-                    ViewportCanvasView(tab: tab) {
-                        captureScreenshot()
-                    }
-                    .transition(.opacity)
-                } else {
-                    webContent
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-
-                if tab.isAgentActive {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.purple.opacity(0.85), Color.blue.opacity(0.65)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 2.5
-                        )
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                }
-
-                if tab.isAgentActive {
-                    AgentActiveIndicatorPill(statusText: tab.agentStatusMessage)
-                        .frame(maxHeight: .infinity, alignment: .top)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                if appState.isURLBarEditing {
-                    Color.black.opacity(0.15)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            DispatchQueue.main.async {
-                                appState.isURLBarEditing = false
-                            }
-                        }
-                        .transition(.opacity)
-                }
-            }
+            TabWebContentHost(
+                tab: tab,
+                qaState: tab.qaState,
+                onCaptureScreenshot: captureScreenshot
+            )
         }
-        .animation(.easeOut(duration: 0.2), value: appState.isURLBarEditing)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.isAgentActive)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.qaState.isViewportActive)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.qaState.isMultiDeviceActive)
     }
 
     private func captureScreenshot() {
@@ -97,6 +45,76 @@ struct BrowserWebContentView: View {
                 ToastManager.shared.show("Failed to capture screenshot", icon: .system("exclamationmark.triangle"))
             }
         }
+    }
+}
+
+private struct TabWebContentHost: View {
+    @ObservedObject var tab: Tab
+    @ObservedObject var qaState: QAModeState
+    @Environment(\.theme) var theme
+    @EnvironmentObject private var appState: AppState
+    let onCaptureScreenshot: () -> Void
+
+    var body: some View {
+        ZStack {
+            if qaState.isMultiDeviceActive {
+                MultiDeviceGridView(tab: tab, qaState: qaState) {
+                    onCaptureScreenshot()
+                }
+                .transition(.opacity)
+            } else if qaState.isCrossEngineActive {
+                CrossEngineSplitView(tab: tab) {
+                    onCaptureScreenshot()
+                }
+                .transition(.opacity)
+            } else if qaState.isViewportActive {
+                ViewportCanvasView(tab: tab, qaState: qaState) {
+                    onCaptureScreenshot()
+                }
+                .transition(.opacity)
+            } else {
+                webContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            if tab.isAgentActive {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.purple.opacity(0.85), Color.blue.opacity(0.65)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2.5
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+
+            if tab.isAgentActive {
+                AgentActiveIndicatorPill(statusText: tab.agentStatusMessage)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if appState.isURLBarEditing {
+                Color.black.opacity(0.15)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        DispatchQueue.main.async {
+                            appState.isURLBarEditing = false
+                        }
+                    }
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: appState.isURLBarEditing)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: tab.isAgentActive)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: qaState.isViewportActive)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: qaState.isMultiDeviceActive)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: qaState.isCrossEngineActive)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: qaState.activePreset)
     }
 
     @ViewBuilder
