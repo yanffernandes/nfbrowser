@@ -213,7 +213,7 @@ struct SidebarView: View {
     }
 
     private func onContainerSelected(container: TabContainer) {
-        withAnimation(.easeOut(duration: 0.1)) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
             tabManager.activateContainer(container)
         }
     }

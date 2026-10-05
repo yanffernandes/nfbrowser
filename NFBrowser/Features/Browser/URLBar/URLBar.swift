@@ -77,7 +77,7 @@ struct URLBar: View {
         if let tab = tabManager.activeTab {
             launcherInput = tab.url.absoluteString
         }
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
             appState.isURLBarEditing = true
         }
     }
@@ -137,7 +137,7 @@ struct URLBar: View {
     private func dismissEditing() {
         DispatchQueue.main.async {
             guard appState.isURLBarEditing else { return }
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
                 appState.isURLBarEditing = false
             }
         }
@@ -274,7 +274,7 @@ struct URLBar: View {
                 Rectangle()
                     .fill(tab.backgroundColor)
             )
-            .animation(.easeOut(duration: 0.25), value: isEditing)
+            .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isEditing)
             // Hidden button for keyboard shortcut
             .overlay(
                 Button("") { startEditing() }
@@ -367,7 +367,7 @@ struct URLBar: View {
                     .foregroundColor(buttonForegroundColor)
                     .frame(width: 16, height: 16)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(TactileBarButtonStyle())
             .oraShortcutHelp("Copy URL", for: KeyboardShortcuts.Address.copyURL)
             .accessibilityLabel(Text("Copy URL"))
         }

@@ -15,14 +15,15 @@ struct NewTabButton: View {
                 Text("New Tab")
                     .font(.system(size: 13, weight: .medium))
             }
-            .foregroundColor(.secondary)
+            .foregroundColor(isHovering ? theme.foreground : .secondary)
             .padding(8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isHovering ? theme.activeTabBackground.opacity(0.1) : .clear, in: .rect(cornerRadius: 10))
+            .background(isHovering ? theme.activeTabBackground.opacity(0.12) : .clear, in: .rect(cornerRadius: 10))
             .contentShape(ConditionallyConcentricRectangle(cornerRadius: 10))
+            .animation(.easeInOut(duration: 0.14), value: isHovering)
             .geometryGroup()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .onHover { isHovering = $0 }
     }
 }

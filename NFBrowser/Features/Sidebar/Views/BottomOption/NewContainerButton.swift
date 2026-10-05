@@ -18,13 +18,14 @@ struct NewContainerButton: View {
             HStack {
                 Image(systemName: "plus")
                     .frame(width: 12, height: 12)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(isHovering ? theme.foreground : .secondary)
             }
             .padding(8)
-            .background(isHovering ? theme.invertedSolidWindowBackgroundColor.opacity(0.1) : .clear)
-            .cornerRadius(8)
+            .background(isHovering ? theme.invertedSolidWindowBackgroundColor.opacity(0.12) : .clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .animation(.easeInOut(duration: 0.12), value: isHovering)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .onHover { isHovering = $0 }
     }
 }

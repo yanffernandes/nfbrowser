@@ -59,19 +59,25 @@ struct ContainerSwitcher: View {
                 .opacity(!isActive ? 0.5 : 1)
                 .background(
                     !isCompact && isHovered
-                        ? theme.invertedSolidWindowBackgroundColor.opacity(0.1)
+                        ? theme.invertedSolidWindowBackgroundColor.opacity(0.12)
                         : isActive
-                        ? theme.invertedSolidWindowBackgroundColor.opacity(0.15)
+                        ? theme.invertedSolidWindowBackgroundColor.opacity(0.18)
                         : .clear
                 )
-                .cornerRadius(8)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    isActive
+                        ? RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(theme.invertedSolidWindowBackgroundColor.opacity(0.15), lineWidth: 1)
+                        : nil
+                )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .help(container.name)
         .accessibilityLabel(container.name)
-        .animation(.easeOut(duration: 0.15), value: isActive || isHovered)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isActive || isHovered)
         .onHover { isHovering in
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                 hoveredContainer = isHovering ? container.id : nil
             }
         }

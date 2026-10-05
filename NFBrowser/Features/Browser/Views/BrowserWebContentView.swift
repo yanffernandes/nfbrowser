@@ -149,31 +149,40 @@ private struct AgentActiveIndicatorPill: View {
                 .foregroundColor(.white)
 
             Circle()
-                .fill(Color.purple)
-                .frame(width: 6, height: 6)
-                .opacity(isPulsing ? 1.0 : 0.3)
+                .fill(
+                    RadialGradient(
+                        colors: [Color.purple, Color.blue],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 4
+                    )
+                )
+                .frame(width: 7, height: 7)
+                .opacity(isPulsing ? 1.0 : 0.35)
+                .scaleEffect(isPulsing ? 1.15 : 0.85)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
         .background(
             Capsule()
-                .fill(.ultraThinMaterial)
+                .fill(Color.black.opacity(0.80))
+                .background(.ultraThinMaterial, in: Capsule())
                 .overlay(
                     Capsule()
                         .stroke(
                             LinearGradient(
-                                colors: [Color.purple.opacity(0.8), Color.blue.opacity(0.5)],
+                                colors: [Color.purple.opacity(0.75), Color.blue.opacity(0.45)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
                             lineWidth: 1
                         )
                 )
-                .shadow(color: Color.purple.opacity(0.35), radius: 10, x: 0, y: 4)
+                .shadow(color: Color.purple.opacity(0.35), radius: 12, x: 0, y: 4)
         )
         .padding(.top, 12)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
                 isPulsing = true
             }
         }

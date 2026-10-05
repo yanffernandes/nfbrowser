@@ -35,13 +35,7 @@ struct WindowControlButton: View {
     @Binding var isHovered: Bool
     @State private var isWindowFocused = true
 
-    private var buttonSize: CGFloat {
-        if #available(macOS 26.0, *) {
-            return 14
-        } else {
-            return 12
-        }
-    }
+    private let buttonSize: CGFloat = 12
 
     private var assetBaseName: String {
         switch type {

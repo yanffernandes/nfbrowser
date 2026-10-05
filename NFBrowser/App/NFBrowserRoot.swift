@@ -220,7 +220,7 @@ typealias OraRoot = NFBrowserRoot
                         if let source = note.object as? NSWindow {
                             guard source === window ?? NSApp.keyWindow else { return }
                         }
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
                             tabManager.toggleSplitWithNextTab()
                         }
                     }
@@ -257,7 +257,7 @@ typealias OraRoot = NFBrowserRoot
                 }
                 NotificationCenter.default.addObserver(forName: .toggleToolbar, object: nil, queue: .main) { note in
                     guard note.object as? NSWindow === window ?? NSApp.keyWindow else { return }
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
                         toolbarManager.isToolbarHidden.toggle()
                     }
                 }

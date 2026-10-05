@@ -78,14 +78,19 @@ struct SidebarURLDisplay: View {
                     triggerCopy(tab.url.absoluteString)
                 } label: {
                     Image(systemName: "link")
-                        .font(.system(size: 14))
-                        .foregroundColor(isHoveringCopy ? theme.foreground.opacity(0.8) : theme.mutedForeground)
+                        .font(.system(size: 13))
+                        .foregroundColor(isHoveringCopy ? theme.foreground : theme.mutedForeground)
+                        .frame(width: 22, height: 22)
+                        .background(
+                            Circle()
+                                .fill(isHoveringCopy ? theme.invertedSolidWindowBackgroundColor.opacity(0.12) : Color.clear)
+                        )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TactileBarButtonStyle())
                 .onHover { hovering in
                     isHoveringCopy = hovering
                 }
-                .animation(.easeOut(duration: 0.15), value: isHoveringCopy)
+                .animation(.easeInOut(duration: 0.12), value: isHoveringCopy)
             } else {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 12))
@@ -107,7 +112,7 @@ struct SidebarURLDisplay: View {
         }
         .background(
             ConditionallyConcentricRectangle(cornerRadius: 10, style: .continuous)
-                .fill(theme.invertedSolidWindowBackgroundColor.opacity(isHovering ? 0.11 : 0.07))
+                .fill(theme.invertedSolidWindowBackgroundColor.opacity(isHovering ? 0.12 : 0.07))
         )
         .overlay(
             Button("") { openLauncher() }
@@ -120,9 +125,9 @@ struct SidebarURLDisplay: View {
         )
         .overlay(
             ConditionallyConcentricRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(theme.invertedSolidWindowBackgroundColor.opacity(0.05), lineWidth: 1)
+                .stroke(theme.invertedSolidWindowBackgroundColor.opacity(isHovering ? 0.12 : 0.06), lineWidth: 1)
         )
-        .animation(.easeOut(duration: 0.15), value: isHovering)
+        .animation(.easeInOut(duration: 0.14), value: isHovering)
         .onReceive(NotificationCenter.default.publisher(for: .copyAddressURL)) { _ in
             guard toolbarManager.isToolbarHidden, sidebarManager.sidebarPosition == .primary else { return }
             if let activeTab = tabManager.activeTab {

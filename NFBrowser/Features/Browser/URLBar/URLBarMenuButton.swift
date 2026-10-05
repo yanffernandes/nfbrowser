@@ -8,13 +8,7 @@ struct URLBarMenuButton: View {
     @State private var isHovering = false
     @State private var menuSourceView: NSView?
 
-    private var cornerRadius: CGFloat {
-        if #available(macOS 26, *) {
-            return 10
-        } else {
-            return 6
-        }
-    }
+    private let cornerRadius: CGFloat = 8
 
     var body: some View {
         Button {
@@ -22,14 +16,16 @@ struct URLBarMenuButton: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(isHovering ? foregroundColor : foregroundColor.opacity(0.7))
+                .foregroundColor(isHovering ? foregroundColor : foregroundColor.opacity(0.75))
                 .frame(width: 30, height: 30)
                 .background(
                     ConditionallyConcentricRectangle(cornerRadius: cornerRadius)
-                        .fill(isHovering ? foregroundColor.opacity(0.1) : Color.clear)
+                        .fill(isHovering ? foregroundColor.opacity(0.12) : Color.clear)
                 )
+                .clipShape(ConditionallyConcentricRectangle(cornerRadius: cornerRadius))
+                .animation(.easeInOut(duration: 0.12), value: isHovering)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(TactileBarButtonStyle())
         .onHover { hovering in
             isHovering = hovering
         }

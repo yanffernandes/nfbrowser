@@ -3,13 +3,7 @@ import SwiftUI
 struct FloatingSidebar: View {
     @Environment(\.theme) var theme
 
-    let sidebarCornerRadius: CGFloat = {
-        if #available(macOS 26, *) {
-            return 13
-        } else {
-            return 5
-        }
-    }()
+    let sidebarCornerRadius: CGFloat = 13
 
     var body: some View {
         let clipShape = ConditionallyConcentricRectangle(cornerRadius: sidebarCornerRadius)

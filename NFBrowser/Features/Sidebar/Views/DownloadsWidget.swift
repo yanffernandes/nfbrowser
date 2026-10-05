@@ -47,12 +47,13 @@ struct DownloadsWidget: View {
                 }
             }
             .frame(width: 32, height: 32)
-            .background(isHovered ? theme.invertedSolidWindowBackgroundColor.opacity(0.1) : .clear)
-            .cornerRadius(8)
+            .background(isHovered ? theme.invertedSolidWindowBackgroundColor.opacity(0.12) : .clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                 isHovered = hovering
             }
         }

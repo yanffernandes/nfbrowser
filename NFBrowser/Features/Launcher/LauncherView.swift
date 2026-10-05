@@ -66,10 +66,10 @@ struct LauncherView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color.black.opacity(clearOverlay! ? 0 : 0.3)
+            Color.black.opacity(clearOverlay! ? 0 : 0.35)
                 .ignoresSafeArea()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .animation(.easeOut(duration: 0.1), value: isVisible)
+                .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isVisible)
                 .onTapGesture {
                     if tabManager.activeTab != nil {
                         isVisible = false
@@ -93,10 +93,10 @@ struct LauncherView: View {
             )
             .padding(.horizontal, 20)
             .offset(y: 250)
-            .scaleEffect(isVisible ? 1.0 : 0.9)
+            .scaleEffect(isVisible ? 1.0 : 0.96)
             .opacity(isVisible ? 1.0 : 0.0)
-            .blur(radius: isVisible ? 0 : 2)
-            .animation(.easeOut(duration: 0.1), value: isVisible)
+            .blur(radius: isVisible ? 0 : 1)
+            .animation(.spring(response: 0.24, dampingFraction: 0.82), value: isVisible)
             .onAppear {
                 isVisible = true
                 isTextFieldFocused = true

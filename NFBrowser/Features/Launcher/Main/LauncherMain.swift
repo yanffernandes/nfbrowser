@@ -83,7 +83,7 @@ struct LauncherMain: View {
             ConditionallyConcentricRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(
                     Color(match?.color ?? theme.foreground)
-                        .opacity(0.05),
+                        .opacity(match != nil ? 0.4 : 0.12),
                     lineWidth: 1
                 )
                 .padding(0.25)

@@ -162,9 +162,20 @@ struct OraButton: View {
             .clipShape(ConditionallyConcentricRectangle(cornerRadius: cornerRadius))
             .animation(.easeInOut(duration: 0.12), value: isHovering)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileButtonStyle())
         .disabled(isDisabled)
         .onHover { isHovering = $0 }
+    }
+}
+
+struct TactileButtonStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.97
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? pressedScale : 1.0)
+            .opacity(configuration.isPressed ? 0.88 : 1.0)
+            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

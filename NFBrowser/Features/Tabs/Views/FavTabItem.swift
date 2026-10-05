@@ -79,8 +79,9 @@ struct FavTabItem: View {
         .frame(height: 48)
         .frame(maxWidth: .infinity)
         .opacity(isDragging ? 0.0 : 1.0)
+        .scaleEffect(isHovering ? 1.04 : 1.0)
         .background(backgroundColor)
-        .cornerRadius(10)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             isDragging
                 ? RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -92,10 +93,12 @@ struct FavTabItem: View {
                 ? RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(
                     Color.accentColor,
-                    lineWidth: 2
+                    lineWidth: 1.5
                 )
                 : nil
         )
+        .animation(.easeInOut(duration: 0.14), value: isHovering)
+        .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isSelected)
         .onTapGesture {
             onTap()
             if !tab.isWebViewReady {

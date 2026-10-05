@@ -67,18 +67,18 @@ struct FloatingTabSwitcher: View {
     // MARK: - View Components
 
     private var backgroundOverlay: some View {
-        Color.black.opacity(0.3)
+        Color.black.opacity(0.35)
             .ignoresSafeArea()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
-            .animation(.easeOut(duration: 0.3), value: appState.isFloatingTabSwitchVisible)
+            .animation(.spring(response: 0.28, dampingFraction: 0.85), value: appState.isFloatingTabSwitchVisible)
             .onTapGesture {
                 closeFloatingTabSwitch()
             }
     }
 
     private var tabSwitcherContainer: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             if tabManager.activeContainer != nil {
                 if recentTabs.isEmpty {
                     ZStack {
@@ -99,12 +99,12 @@ struct FloatingTabSwitcher: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 20)
         .background(BlurEffectView(material: .popover, blendingMode: .withinWindow))
-        .background(theme.background.opacity(0.3))
-        .cornerRadius(Constants.containerCornerRadius)
-        .shadow(color: theme.primary.opacity(0.07), radius: 16, x: 0, y: 12)
+        .background(theme.background.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: Constants.containerCornerRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 24, x: 0, y: 12)
         .background(keyboardHandler)
         .overlay(containerBorder)
     }
@@ -117,22 +117,24 @@ struct FloatingTabSwitcher: View {
                 loadingTabView
             }
         }
+        .scaleEffect(focusedTab == tab.id ? 1.03 : 1.0)
         .shadow(
-            color: focusedTab == tab.id ? theme.primary.opacity(0.3) : .clear,
-            radius: 8, x: 0, y: 2
+            color: focusedTab == tab.id ? Color.accentColor.opacity(0.3) : .clear,
+            radius: 8, x: 0, y: 3
         )
-        .animation(.easeOut(duration: 0.1), value: focusedTab)
+        .animation(.spring(response: 0.24, dampingFraction: 0.82), value: focusedTab)
         .focusable()
         .focused($focusedTab, equals: tab.id)
     }
 
     private func readyTabView(for tab: Tab) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             tabPreviewImage(for: tab)
 
-            if focusedTab == tab.id {
-                tabTitleBar(for: tab)
-            }
+            tabTitleBar(for: tab)
+                .frame(height: 18)
+                .opacity(focusedTab == tab.id ? 1.0 : 0.0)
+                .animation(.spring(response: 0.2, dampingFraction: 0.82), value: focusedTab)
         }
         .frame(width: Constants.previewWidth, alignment: .leading)
         .padding(.horizontal, 4)
@@ -169,7 +171,7 @@ struct FloatingTabSwitcher: View {
     private func focusBorder(for tab: Tab) -> some View {
         RoundedRectangle(cornerRadius: Constants.cornerRadius, style: .continuous)
             .stroke(
-                focusedTab == tab.id ? theme.invertedSolidWindowBackgroundColor : Color.clear,
+                focusedTab == tab.id ? Color.accentColor : Color.clear,
                 lineWidth: 2
             )
     }
@@ -217,7 +219,7 @@ struct FloatingTabSwitcher: View {
 
     private var containerBorder: some View {
         RoundedRectangle(cornerRadius: Constants.containerCornerRadius, style: .continuous)
-            .stroke(Color(.separatorColor), lineWidth: 1.5)
+            .stroke(theme.invertedSolidWindowBackgroundColor.opacity(0.12), lineWidth: 1)
     }
 
     // MARK: - Computed Properties

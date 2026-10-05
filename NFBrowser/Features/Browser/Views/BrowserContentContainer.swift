@@ -11,13 +11,7 @@ struct BrowserContentContainer<Content: View>: View {
         appState.isFullscreen && sidebarManager.isSidebarHidden
     }
 
-    private var cornerRadius: CGFloat {
-        if #available(macOS 26, *) {
-            return 13
-        } else {
-            return 6
-        }
-    }
+    private let cornerRadius: CGFloat = 11
 
     init(
         @ViewBuilder content: @escaping () -> Content
@@ -29,6 +23,10 @@ struct BrowserContentContainer<Content: View>: View {
         content()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: isCompleteFullscreen ? 0 : cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: isCompleteFullscreen ? 0 : cornerRadius, style: .continuous)
+                    .stroke(Color.black.opacity(0.12), lineWidth: 0.5)
+            )
             .padding(
                 isCompleteFullscreen
                     ? EdgeInsets(
@@ -46,8 +44,8 @@ struct BrowserContentContainer<Content: View>: View {
                             .side == .secondary ? 6 : 0
                     )
             )
-            .animation(.easeInOut(duration: 0.3), value: appState.isFullscreen)
-            .shadow(color: .black.opacity(0.15), radius: isCompleteFullscreen ? 0 : cornerRadius, x: 0, y: 2)
+            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: appState.isFullscreen)
+            .shadow(color: .black.opacity(0.12), radius: isCompleteFullscreen ? 0 : 8, x: 0, y: 2)
             .ignoresSafeArea(.all)
     }
 }

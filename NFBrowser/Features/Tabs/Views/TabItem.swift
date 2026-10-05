@@ -140,7 +140,9 @@ struct TabItem: View {
 
             actionButton
                 .opacity(isHovering ? 1.0 : 0.0)
+                .scaleEffect(isHovering ? 1.0 : 0.85)
                 .allowsHitTesting(isHovering)
+                .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isHovering)
         }
         .padding(.leading, 8)
         .padding(.trailing, 6)
@@ -160,14 +162,15 @@ struct TabItem: View {
         .background(backgroundColor, in: .rect(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isSelected ? Color.accentColor.opacity(0.9) : .clear, lineWidth: 1)
+                .stroke(isSelected ? Color.accentColor.opacity(0.85) : .clear, lineWidth: 1)
         )
         .overlay(alignment: .leading) {
             if isSelected {
                 Capsule()
                     .fill(Color.accentColor)
-                    .frame(width: 3, height: 22)
+                    .frame(width: 3, height: 20)
                     .padding(.leading, 3)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
         .overlay(
@@ -184,6 +187,8 @@ struct TabItem: View {
         )
         .contextMenu { contextMenuItems }
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isDragging)
+        .animation(.easeInOut(duration: 0.14), value: isHovering)
+        .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isSelected)
         .geometryGroup()
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -309,16 +314,18 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 9.5, weight: .bold))
                 .foregroundColor(isHovering ? .white : color.opacity(0.85))
                 .frame(width: 20, height: 20)
                 .background(
                     Circle()
-                        .fill(isHovering ? Color.white.opacity(0.22) : Color.clear)
+                        .fill(isHovering ? Color.white.opacity(0.24) : Color.clear)
                 )
-                .contentShape(Rectangle())
+                .clipShape(Circle())
+                .animation(.easeInOut(duration: 0.12), value: isHovering)
+                .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TactileBarButtonStyle())
         .onHover { isHovering = $0 }
     }
 }

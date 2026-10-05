@@ -8,32 +8,37 @@ struct URLBarButton: View {
     let action: () -> Void
     @State private var isHovering = false
 
-    private var cornerRadius: CGFloat {
-        if #available(macOS 26, *) {
-            return 10
-        } else {
-            return 10
-        }
-    }
+    private let cornerRadius: CGFloat = 8
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(isEnabled ?
-                    (isHovering ? foregroundColor : foregroundColor.opacity(0.7)) :
+                    (isHovering ? foregroundColor : foregroundColor.opacity(0.75)) :
                     foregroundColor.opacity(0.25)
                 )
                 .frame(width: 30, height: 30)
                 .background(
                     ConditionallyConcentricRectangle(cornerRadius: cornerRadius)
-                        .fill(isHovering && isEnabled ? foregroundColor.opacity(0.1) : Color.clear)
+                        .fill(isHovering && isEnabled ? foregroundColor.opacity(0.12) : Color.clear)
                 )
+                .clipShape(ConditionallyConcentricRectangle(cornerRadius: cornerRadius))
+                .animation(.easeInOut(duration: 0.12), value: isHovering)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(TactileBarButtonStyle())
         .disabled(!isEnabled)
         .onHover { hovering in
             isHovering = hovering
         }
+    }
+}
+
+struct TactileBarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }

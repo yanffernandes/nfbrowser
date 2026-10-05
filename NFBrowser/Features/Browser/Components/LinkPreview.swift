@@ -15,21 +15,22 @@ struct LinkPreview: View {
             HStack {
                 ZStack {
                     Text(text)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.system(size: 11.5, weight: .regular))
                         .foregroundStyle(theme.foreground)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .multilineTextAlignment(.leading)
                 }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .padding(.horizontal, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 99, style: .continuous)
-                        .fill(Color(.windowBackgroundColor))
+                    Capsule()
+                        .fill(.ultraThinMaterial)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 99, style: .continuous)
-                                .stroke(Color(.separatorColor), lineWidth: 1)
+                            Capsule()
+                                .stroke(theme.invertedSolidWindowBackgroundColor.opacity(0.12), lineWidth: 1)
                         )
+                        .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 2)
                 )
 
                 Spacer()
@@ -49,7 +50,7 @@ struct LinkPreview: View {
             .padding(.leading, 8)
         }
         .transition(.opacity)
-        .animation(.easeOut(duration: 0.1), value: text)
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: text)
         .allowsHitTesting(false)
         .zIndex(900)
     }
