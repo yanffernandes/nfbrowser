@@ -177,7 +177,6 @@ struct TabItem: View {
         .background(
             PreciseHoverArea(isHovered: $isHovering)
         )
-        .onHover { isHovering = $0 }
         .contextMenu { contextMenuItems }
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isDragging)
         .geometryGroup()
@@ -299,7 +298,6 @@ struct ActionButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(PreciseHoverArea(isHovered: $isHovering))
         .onHover { isHovering = $0 }
     }
 }

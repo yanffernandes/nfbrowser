@@ -20,7 +20,6 @@ struct PreciseHoverArea: NSViewRepresentable {
                 self.isHovered = hovering
             }
         }
-        nsView.checkHover()
     }
 }
 
@@ -30,6 +29,8 @@ final class PreciseHoverNSView: NSView {
     private var currentHover = false
     private var tabCloseObserver: NSObjectProtocol?
     private var checkWorkItems: [DispatchWorkItem] = []
+
+    override var isFlipped: Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -70,7 +71,7 @@ final class PreciseHoverNSView: NSView {
         // As tabs animate and slide into the position of closed tabs,
         // perform rapid checks across the settling window so hover is acquired instantly
         // even if the user's mouse remains completely still.
-        let delays = [0.02, 0.05, 0.08, 0.12, 0.16, 0.22, 0.30, 0.40]
+        let delays = [0.03, 0.07, 0.12, 0.18, 0.25, 0.35]
         for delay in delays {
             let item = DispatchWorkItem { [weak self] in
                 self?.checkHover()
@@ -94,31 +95,19 @@ final class PreciseHoverNSView: NSView {
         let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
         addTrackingArea(area)
         self.trackingArea = area
-        checkHover()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        checkHover()
-    }
-
-    override func setFrameOrigin(_ newOrigin: NSPoint) {
-        super.setFrameOrigin(newOrigin)
-        checkHover()
-    }
-
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        checkHover()
-    }
-
-    override func layout() {
-        super.layout()
-        checkHover()
+        if window != nil {
+            checkHover()
+        } else {
+            setHover(false)
+        }
     }
 
     override func mouseEntered(with event: NSEvent) {
-        setHover(true)
+        checkHover()
     }
 
     override func mouseExited(with event: NSEvent) {
@@ -140,8 +129,8 @@ final class PreciseHoverNSView: NSView {
             return
         }
         let mouseInWindow = window.mouseLocationOutsideOfEventStream
-        let mouseInView = convert(mouseInWindow, from: nil)
-        let inside = !visibleRect.isEmpty && visibleRect.contains(mouseInView)
+        let rectInWindow = convert(bounds, to: nil)
+        let inside = rectInWindow.contains(mouseInWindow)
         setHover(inside)
     }
 
