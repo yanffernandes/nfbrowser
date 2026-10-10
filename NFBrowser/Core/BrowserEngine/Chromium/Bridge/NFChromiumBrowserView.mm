@@ -918,6 +918,10 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     if (_browser) {
         _browser->GetHost()->CloseBrowser(true);
     }
+    // A view closed before it was ever shown would otherwise stay parked.
+    if (self.window == NFChromiumBrowserView.parkingWindow) {
+        [self removeFromSuperview];
+    }
 }
 
 #pragma mark Client callbacks
