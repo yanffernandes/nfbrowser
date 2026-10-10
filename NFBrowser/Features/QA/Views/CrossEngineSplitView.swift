@@ -298,16 +298,15 @@ private struct ChromiumEngineHost: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NFChromiumBrowserView {
-        let view = NFChromiumBrowserView(
-            frame: .zero,
+        let view = NFChromiumBrowserView.makePane(
             profileIdentifier: spaceID.uuidString,
             persistent: true,
-            initialURL: url
+            url: url,
+            setup: DeviceSyncBridge.chromiumSetup
         )
         view.delegate = context.coordinator
         view.observedDevToolsEvents = ["Runtime.bindingCalled"]
         context.coordinator.loadedURL = url
-        DeviceSyncBridge.shared.installChromiumBridge(on: view)
         DeviceSyncBridge.shared.register(id: context.coordinator.id, peer: view)
         DispatchQueue.main.async {
             onViewCreated(view)

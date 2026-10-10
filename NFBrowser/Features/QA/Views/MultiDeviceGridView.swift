@@ -128,10 +128,12 @@ struct MultiDeviceGridView: View {
                         } label: {
                             Text("\(Int(targetScale * 100))")
                                 .font(.system(size: 9, design: .monospaced))
-                                .foregroundColor(abs(qaState.gridScale - targetScale) < 0.05 ? Color.accentColor : .white.opacity(0.5))
+                                .foregroundColor(abs(qaState.gridScale - targetScale) < 0.05 ? Color
+                                    .accentColor : .white.opacity(0.5))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(abs(qaState.gridScale - targetScale) < 0.05 ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.06))
+                                .background(abs(qaState.gridScale - targetScale) < 0.05 ? Color.accentColor
+                                    .opacity(0.2) : Color.white.opacity(0.06))
                                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -246,15 +248,7 @@ struct MultiDeviceGridView: View {
 
             // Device Frame with isolated web content
             ZStack(alignment: .topLeading) {
-                MultiDeviceWebViewHost(
-                    url: tab.currentPageURL ?? tab.url,
-                    preset: preset,
-                    spaceID: tab.container.id,
-                    engineKind: tab.container.engineKind,
-                    reloadTrigger: reloadTokens[preset] ?? UUID()
-                )
-                .frame(width: dims.width, height: dims.height)
-                .scaleEffect(scale, anchor: .topLeading)
+                deviceContent(for: preset, viewport: dims, scale: scale)
             }
             .frame(width: scaledWidth, height: scaledHeight)
             .background(Color.white)
@@ -267,12 +261,42 @@ struct MultiDeviceGridView: View {
         }
     }
 
+    /// Devices render with the Space's own engine.
+    @ViewBuilder
+    private func deviceContent(for preset: ViewportPreset, viewport: CGSize, scale: CGFloat) -> some View {
+        switch tab.container.engineKind {
+        case .webkit:
+            MultiDeviceWebViewHost(
+                url: tab.currentPageURL ?? tab.url,
+                preset: preset,
+                spaceID: tab.container.id,
+                reloadTrigger: reloadTokens[preset]
+            )
+            .frame(width: viewport.width, height: viewport.height)
+            .scaleEffect(scale, anchor: .topLeading)
+        case .chromium:
+            // Chromium scales the device viewport itself; a scale effect on top
+            // would scale its layers twice.
+            MultiDeviceChromiumHost(
+                url: tab.currentPageURL ?? tab.url,
+                preset: preset,
+                viewport: viewport,
+                scale: scale,
+                spaceID: tab.container.id,
+                reloadTrigger: reloadTokens[preset]
+            )
+            .frame(width: viewport.width * scale, height: viewport.height * scale)
+        }
+    }
+
     private var addDeviceCard: some View {
         let scale = qaState.gridScale
         let cardHeight = max(240 * scale, 200)
 
         return Menu {
-            ForEach(ViewportPreset.allCases.filter { $0 != .default && !qaState.multiDevicePresets.contains($0) }) { preset in
+            ForEach(ViewportPreset.allCases
+                .filter { $0 != .default && !qaState.multiDevicePresets.contains($0) })
+            { preset in
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         qaState.addMultiDevicePreset(preset)
@@ -303,12 +327,13 @@ struct MultiDeviceGridView: View {
 }
 
 // MARK: - MultiDeviceWebViewHost
+
 struct MultiDeviceWebViewHost: NSViewRepresentable {
     let url: URL
     let preset: ViewportPreset
     let spaceID: UUID
-    let engineKind: BrowserEngineKind
-    let reloadTrigger: UUID
+    /// Changes when the user reloads the device; nil until then.
+    let reloadTrigger: UUID?
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let id = UUID()
@@ -316,7 +341,12 @@ struct MultiDeviceWebViewHost: NSViewRepresentable {
         var lastReloadTrigger: UUID?
         weak var webView: WKWebView?
 
-        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
             if navigationAction.targetFrame == nil {
                 webView.load(navigationAction.request)
             }
@@ -330,11 +360,7 @@ struct MultiDeviceWebViewHost: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        let profile = BrowserEngine.shared.makeProfile(
-            engineKind: engineKind,
-            identifier: spaceID,
-            isPrivate: false
-        )
+        let profile = BrowserEngine.shared.makeProfile(engineKind: .webkit, identifier: spaceID, isPrivate: false)
         config.websiteDataStore = profile.dataStore
         config.userContentController.add(DeviceSyncBridge.shared, name: DeviceSyncBridge.messageName)
 
@@ -352,7 +378,7 @@ struct MultiDeviceWebViewHost: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
 
-        let ua: String = switch preset {
+        let ua = switch preset {
         case .mobileS, .mobileM, .mobileL:
             "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1"
         case .tablet:

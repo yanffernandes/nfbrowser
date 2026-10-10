@@ -128,17 +128,18 @@ final class DeviceSyncBridge: NSObject, WKScriptMessageHandler {
         peers.removeAll { $0.id == id }
     }
 
-    /// Chromium panes report through a DevTools binding; the script is also registered
-    /// for every new document the pane loads.
-    func installChromiumBridge(on view: NFChromiumBrowserView) {
-        view.sendDevToolsMethod("Page.enable", params: nil, completion: nil)
-        view.sendDevToolsMethod("Runtime.enable", params: nil, completion: nil)
-        view.sendDevToolsMethod("Runtime.addBinding", params: ["name": Self.chromiumBindingName], completion: nil)
-        view.sendDevToolsMethod(
-            "Page.addScriptToEvaluateOnNewDocument",
-            params: ["source": Self.injectionScript],
-            completion: nil
-        )
+    /// Setup for Chromium panes, which report through a DevTools binding; the script is
+    /// also registered for every new document the pane loads.
+    static var chromiumSetup: [ChromiumDevToolsCommand] {
+        [
+            ChromiumDevToolsCommand(method: "Page.enable"),
+            ChromiumDevToolsCommand(method: "Runtime.enable"),
+            ChromiumDevToolsCommand(method: "Runtime.addBinding", params: ["name": chromiumBindingName]),
+            ChromiumDevToolsCommand(
+                method: "Page.addScriptToEvaluateOnNewDocument",
+                params: ["source": injectionScript]
+            )
+        ]
     }
 
     func handleChromiumEvent(method: String, params: [String: Any], from view: NFChromiumBrowserView) {

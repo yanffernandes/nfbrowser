@@ -5,6 +5,8 @@
     /// used to verify engines end to end without touching the UI:
     /// - `--debug-space-engine <webkit|chromium>` switches the active Space's engine.
     /// - `--debug-cross-engine` opens Cross-Engine Compare on the first loaded page.
+    /// - `--debug-multi-device` opens the multi-device grid on the first loaded page;
+    ///   `--debug-grid-scale <scale>` then zooms the grid a few seconds later.
     /// - `--debug-agent-bridge <file>` starts the agent browser bridge and writes the
     ///   environment for the bundled nf-browser CLI (endpoint and token) to `file`.
     enum DebugAutomation {
@@ -26,13 +28,23 @@
                 tabManager.rebuildLoadedPages(for: container.id)
             }
 
-            if arguments.contains("--debug-cross-engine") {
-                // Opens Cross-Engine Compare once the first page has finished loading.
+            let opensCrossEngine = arguments.contains("--debug-cross-engine")
+            if opensCrossEngine || arguments.contains("--debug-multi-device") {
+                // Opens the QA view once the first page has finished loading.
                 Task { @MainActor in
                     while tabManager.activeTab == nil || tabManager.activeTab?.isLoading == true {
                         try? await Task.sleep(nanoseconds: 500_000_000)
                     }
-                    tabManager.activeTab?.qaState.toggleCrossEngine()
+                    guard let qaState = tabManager.activeTab?.qaState else { return }
+                    if opensCrossEngine {
+                        qaState.toggleCrossEngine()
+                        return
+                    }
+                    qaState.toggleMultiDevice()
+                    if let scale = value(after: "--debug-grid-scale", in: arguments).flatMap(Double.init) {
+                        try? await Task.sleep(nanoseconds: 5_000_000_000)
+                        qaState.gridScale = scale
+                    }
                 }
             }
 
