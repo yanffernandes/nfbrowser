@@ -9,6 +9,8 @@
 #include <string>
 
 #include "include/cef_app.h"
+#include "include/cef_callback.h"
+#include "include/cef_cookie.h"
 #include "include/cef_version.h"
 #include "include/wrapper/cef_library_loader.h"
 
@@ -19,6 +21,8 @@ static NSString *const NFChromiumErrorDomain = @"NFChromiumRuntime";
 @interface NFChromiumRuntime ()
 - (void)nf_contextDidInitialize;
 @end
+
+static NSString *const NFPendingProfileRemovalsKeyPrefix = @"NFChromiumPendingProfileRemovals-";
 
 // External message pump, ported from cefclient's MainMessageLoopExternalPump(Mac)
 // (tests/shared/browser in the CEF repository, BSD license,
@@ -158,6 +162,97 @@ class NFCefApp : public CefApp, public CefBrowserProcessHandler {
     IMPLEMENT_REFCOUNTING(NFCefApp);
 };
 
+// Adapters from Objective-C blocks to CEF callback interfaces.
+class NFCompletionCallback : public CefCompletionCallback {
+   public:
+    explicit NFCompletionCallback(void (^block)(void)) : block_(block) {}
+    void OnComplete() override { block_(); }
+
+   private:
+    void (^block_)(void);
+    IMPLEMENT_REFCOUNTING(NFCompletionCallback);
+};
+
+class NFSetCookieCallback : public CefSetCookieCallback {
+   public:
+    explicit NFSetCookieCallback(void (^block)(bool)) : block_(block) {}
+    void OnComplete(bool success) override { block_(success); }
+
+   private:
+    void (^block_)(bool);
+    IMPLEMENT_REFCOUNTING(NFSetCookieCallback);
+};
+
+class NFDeleteCookiesCallback : public CefDeleteCookiesCallback {
+   public:
+    explicit NFDeleteCookiesCallback(void (^block)(void)) : block_(block) {}
+    void OnComplete(int num_deleted) override { block_(); }
+
+   private:
+    void (^block_)(void);
+    IMPLEMENT_REFCOUNTING(NFDeleteCookiesCallback);
+};
+
+// Deletes the cookies a host receives: its own and its parent domains'. CEF releases
+// the visitor when the visit ends, which is when completion is reported.
+class NFHostCookieDeleter : public CefCookieVisitor {
+   public:
+    NFHostCookieDeleter(std::string host, void (^completion)(void)) : host_(std::move(host)), completion_(completion) {}
+    ~NFHostCookieDeleter() override { dispatch_async(dispatch_get_main_queue(), completion_); }
+
+    bool Visit(const CefCookie &cookie, int count, int total, bool &deleteCookie) override {
+        std::string domain = CefString(&cookie.domain).ToString();
+        if (!domain.empty() && domain[0] == '.') {
+            domain.erase(0, 1);
+        }
+        const std::string suffix = "." + domain;
+        deleteCookie = !domain.empty() &&
+                       (host_ == domain || (host_.size() > suffix.size() &&
+                                            host_.compare(host_.size() - suffix.size(), suffix.size(), suffix) == 0));
+        return true;
+    }
+
+   private:
+    std::string host_;
+    void (^completion_)(void);
+    IMPLEMENT_REFCOUNTING(NFHostCookieDeleter);
+};
+
+// Chromium time is microseconds since 1601-01-01 UTC.
+CefBaseTime NFBaseTime(NSDate *date) {
+    cef_basetime_t time;
+    time.val = static_cast<int64_t>((date.timeIntervalSince1970 + 11644473600.0) * 1000000.0);
+    return CefBaseTime(time);
+}
+
+CefCookie NFCefCookie(NSHTTPCookie *cookie) {
+    CefCookie cefCookie;
+    NSString *path = cookie.path.length > 0 ? cookie.path : @"/";
+    CefString(&cefCookie.name) = cookie.name.UTF8String;
+    CefString(&cefCookie.value) = cookie.value.UTF8String;
+    // An empty domain makes a host-only cookie for the URL's host.
+    CefString(&cefCookie.domain) = [cookie.domain hasPrefix:@"."] ? cookie.domain.UTF8String : "";
+    CefString(&cefCookie.path) = path.UTF8String;
+    cefCookie.secure = cookie.isSecure;
+    cefCookie.httponly = cookie.isHTTPOnly;
+    if (cookie.expiresDate) {
+        cefCookie.has_expires = true;
+        cefCookie.expires = NFBaseTime(cookie.expiresDate);
+    }
+    if ([cookie.sameSitePolicy isEqualToString:NSHTTPCookieSameSiteStrict]) {
+        cefCookie.same_site = CEF_COOKIE_SAME_SITE_STRICT_MODE;
+    } else if ([cookie.sameSitePolicy isEqualToString:NSHTTPCookieSameSiteLax]) {
+        cefCookie.same_site = CEF_COOKIE_SAME_SITE_LAX_MODE;
+    }
+    return cefCookie;
+}
+
+std::string NFCookieURL(NSHTTPCookie *cookie) {
+    NSString *host = [cookie.domain stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"."]];
+    NSString *path = cookie.path.length > 0 ? cookie.path : @"/";
+    return [NSString stringWithFormat:@"%@://%@%@", cookie.isSecure ? @"https" : @"http", host, path].UTF8String;
+}
+
 std::string SanitizedProfileComponent(NSString *identifier) {
     NSCharacterSet *allowed =
         [NSCharacterSet characterSetWithCharactersInString:
@@ -261,6 +356,8 @@ std::string SanitizedProfileComponent(NSString *identifier) {
         _rootCacheURL = [NSURL fileURLWithFileSystemRepresentation:resolvedRoot isDirectory:YES relativeToURL:nil];
     }
 
+    [self applyPendingProfileRemovals];
+
     _libraryLoader = std::make_unique<CefScopedLibraryLoader>();
     if (!_libraryLoader->LoadInMain()) {
         _libraryLoader.reset();
@@ -338,6 +435,142 @@ std::string SanitizedProfileComponent(NSString *identifier) {
     CefRefPtr<CefRequestContext> context = CefRequestContext::CreateContext(settings, nullptr);
     _requestContexts[key] = context;
     return context;
+}
+
+#pragma mark Profile data
+
+// Runs `block` with the profile's cookie manager once its storage is ready, or with
+// nullptr when Chromium cannot start.
+- (void)withCookieManagerForProfile:(NSString *)identifier
+                         persistent:(BOOL)persistent
+                              block:(void (^)(CefRefPtr<CefCookieManager> manager))block {
+    if (![self startIfNeededWithError:nil]) {
+        block(nullptr);
+        return;
+    }
+    __weak NFChromiumRuntime *weakSelf = self;
+    [self performWhenContextReady:^{
+      NFChromiumRuntime *runtime = weakSelf;
+      if (!runtime.isRunning) {
+          block(nullptr);
+          return;
+      }
+      CefRefPtr<CefRequestContext> context = [runtime requestContextForProfile:identifier persistent:persistent];
+      __block CefRefPtr<CefCookieManager> manager;
+      manager = context->GetCookieManager(new NFCompletionCallback(^{
+        block(manager);
+      }));
+      if (!manager) {
+          block(nullptr);
+      }
+    }];
+}
+
+- (void)setCookies:(NSArray<NSHTTPCookie *> *)cookies
+        forProfile:(NSString *)identifier
+        persistent:(BOOL)persistent
+        completion:(void (^)(NSInteger))completion {
+    if (cookies.count == 0) {
+        completion(0);
+        return;
+    }
+    [self withCookieManagerForProfile:identifier
+                           persistent:persistent
+                                block:^(CefRefPtr<CefCookieManager> manager) {
+                                  if (!manager) {
+                                      completion(0);
+                                      return;
+                                  }
+                                  __block NSInteger remaining = (NSInteger)cookies.count;
+                                  __block NSInteger accepted = 0;
+                                  void (^finishOne)(bool) = ^(bool success) {
+                                    accepted += success ? 1 : 0;
+                                    remaining -= 1;
+                                    if (remaining == 0) {
+                                        completion(accepted);
+                                    }
+                                  };
+                                  for (NSHTTPCookie *cookie in cookies) {
+                                      if (!manager->SetCookie(NFCookieURL(cookie), NFCefCookie(cookie),
+                                                              new NFSetCookieCallback(finishOne))) {
+                                          finishOne(false);
+                                      }
+                                  }
+                                }];
+}
+
+- (void)deleteCookiesForProfile:(NSString *)identifier
+                     persistent:(BOOL)persistent
+                           host:(NSString *)host
+                     completion:(void (^)(void))completion {
+    [self withCookieManagerForProfile:identifier
+                           persistent:persistent
+                                block:^(CefRefPtr<CefCookieManager> manager) {
+                                  if (!manager) {
+                                      completion();
+                                  } else if (host.length == 0) {
+                                      if (!manager->DeleteCookies("", "", new NFDeleteCookiesCallback(completion))) {
+                                          completion();
+                                      }
+                                  } else {
+                                      // On failure the visitor is released at once and reports completion.
+                                      manager->VisitAllCookies(
+                                          new NFHostCookieDeleter(host.lowercaseString.UTF8String, completion));
+                                  }
+                                }];
+}
+
+- (void)clearCacheForProfile:(NSString *)identifier persistent:(BOOL)persistent completion:(void (^)(void))completion {
+    if (![self startIfNeededWithError:nil]) {
+        completion();
+        return;
+    }
+    __weak NFChromiumRuntime *weakSelf = self;
+    [self performWhenContextReady:^{
+      NFChromiumRuntime *runtime = weakSelf;
+      if (!runtime.isRunning) {
+          completion();
+          return;
+      }
+      [runtime requestContextForProfile:identifier persistent:persistent]->ClearHttpCache(
+          new NFCompletionCallback(completion));
+    }];
+}
+
+- (void)removeProfile:(NSString *)identifier {
+    std::string component = SanitizedProfileComponent(identifier);
+    _requestContexts.erase("persistent:" + component);
+    _requestContexts.erase("ephemeral:" + component);
+    NSString *name = @(component.c_str());
+    if (!_isRunning) {
+        [self deleteProfileDirectory:name];
+        return;
+    }
+    // Chromium keeps the profile's files open until it exits.
+    NSString *key = [NFPendingProfileRemovalsKeyPrefix stringByAppendingString:_rootCacheURL.lastPathComponent];
+    NSMutableArray<NSString *> *pending =
+        [[NSUserDefaults.standardUserDefaults stringArrayForKey:key] mutableCopy] ?: [NSMutableArray array];
+    if (![pending containsObject:name]) {
+        [pending addObject:name];
+    }
+    [NSUserDefaults.standardUserDefaults setObject:pending forKey:key];
+}
+
+- (void)applyPendingProfileRemovals {
+    NSString *key = [NFPendingProfileRemovalsKeyPrefix stringByAppendingString:_rootCacheURL.lastPathComponent];
+    for (NSString *name in [NSUserDefaults.standardUserDefaults stringArrayForKey:key]) {
+        [self deleteProfileDirectory:name];
+    }
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+}
+
+- (void)deleteProfileDirectory:(NSString *)name {
+    // Names come from SanitizedProfileComponent: a single path component.
+    if (name.length == 0 || [name containsString:@"/"] || [name hasPrefix:@"."]) {
+        return;
+    }
+    [NSFileManager.defaultManager removeItemAtURL:[_rootCacheURL URLByAppendingPathComponent:name isDirectory:YES]
+                                            error:nil];
 }
 
 - (void)discardEphemeralProfile:(NSString *)identifier {

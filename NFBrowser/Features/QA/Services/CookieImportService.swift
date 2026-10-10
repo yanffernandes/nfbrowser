@@ -1,7 +1,6 @@
 import CommonCrypto
 import Foundation
 import SQLite3
-import WebKit
 
 final class CookieImportService {
     static let shared = CookieImportService()
@@ -19,8 +18,9 @@ final class CookieImportService {
     }
 
     /// Import cookies from the local Arc browser installation into a specific container
+    @MainActor
     func importFromArc(
-        into spaceID: UUID,
+        into container: TabContainer,
         domainFilter: String? = nil
     ) async throws -> Int {
         let snapshot = try await Task.detached(priority: .userInitiated) {
@@ -28,8 +28,6 @@ final class CookieImportService {
         }.value
 
         let records = snapshot.cookies
-        let profile = BrowserEngine.shared.makeProfile(identifier: spaceID, isPrivate: false)
-        let cookieStore = profile.dataStore.httpCookieStore
 
         var importableCookies: [HTTPCookie] = []
         for record in records {
@@ -60,21 +58,20 @@ final class CookieImportService {
             }
         }
 
-        return await injectCookies(importableCookies, into: cookieStore)
+        return await profile(for: container).importCookies(importableCookies)
     }
 
     /// Import cookies from the local Google Chrome installation into a specific container
+    @MainActor
     func importFromChrome(
-        into spaceID: UUID,
+        into container: TabContainer,
         domainFilter: String? = nil
     ) async throws -> Int {
         let cookies = try await Task.detached(priority: .userInitiated) {
             try ChromeCookieExtractor.readCookies(domainFilter: domainFilter)
         }.value
 
-        let profile = BrowserEngine.shared.makeProfile(identifier: spaceID, isPrivate: false)
-        let cookieStore = profile.dataStore.httpCookieStore
-        return await injectCookies(cookies, into: cookieStore)
+        return await profile(for: container).importCookies(cookies)
     }
 
     /// Parse and filter cookies from JSON data
@@ -117,33 +114,19 @@ final class CookieImportService {
     }
 
     /// Import cookies from a standard JSON format (e.g. Cookie-Editor extension export)
+    @MainActor
     func importFromJSON(
         data: Data,
-        into spaceID: UUID,
+        into container: TabContainer,
         domainFilter: String? = nil
     ) async throws -> Int {
         let importableCookies = try parseJSONCookies(data: data, domainFilter: domainFilter)
-        let profile = BrowserEngine.shared.makeProfile(identifier: spaceID, isPrivate: false)
-        let cookieStore = profile.dataStore.httpCookieStore
-        return await injectCookies(importableCookies, into: cookieStore)
+        return await profile(for: container).importCookies(importableCookies)
     }
 
-    private func injectCookies(
-        _ cookies: [HTTPCookie],
-        into cookieStore: WKHTTPCookieStore
-    ) async -> Int {
-        guard !cookies.isEmpty else { return 0 }
-
-        var importedCount = 0
-        for cookie in cookies {
-            await withCheckedContinuation { continuation in
-                cookieStore.setCookie(cookie) {
-                    continuation.resume()
-                }
-            }
-            importedCount += 1
-        }
-        return importedCount
+    /// The Space's own profile, on the Space's engine.
+    private func profile(for container: TabContainer) -> BrowserEngineProfile {
+        BrowserEngine.shared.makeProfile(engineKind: container.engineKind, identifier: container.id, isPrivate: false)
     }
 }
 

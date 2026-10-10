@@ -24,6 +24,29 @@ NS_ASSUME_NONNULL_BEGIN
 /// Closes every browser, drains the pump and calls CefShutdown. No-op when not running.
 - (void)shutdown;
 
+/// Profile data operations start Chromium when needed; completions run on the main thread.
+
+/// Adds cookies to a profile and reports how many Chromium accepted.
+- (void)setCookies:(NSArray<NSHTTPCookie *> *)cookies
+        forProfile:(NSString *)profileIdentifier
+        persistent:(BOOL)persistent
+        completion:(void (^)(NSInteger accepted))completion;
+
+/// Deletes every cookie of a profile, or only those for `host` and its parent domains.
+- (void)deleteCookiesForProfile:(NSString *)profileIdentifier
+                     persistent:(BOOL)persistent
+                           host:(nullable NSString *)host
+                     completion:(void (^)(void))completion;
+
+/// Clears a profile's HTTP cache.
+- (void)clearCacheForProfile:(NSString *)profileIdentifier
+                  persistent:(BOOL)persistent
+                  completion:(void (^)(void))completion;
+
+/// Forgets a profile: its context is dropped now and its directory is deleted right
+/// away, or before Chromium starts next time if the running engine may still use it.
+- (void)removeProfile:(NSString *)profileIdentifier;
+
 - (instancetype)init NS_UNAVAILABLE;
 
 @end

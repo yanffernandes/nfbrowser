@@ -237,10 +237,11 @@ class TabManager: ObservableObject {
 
     func deleteContainer(_ container: TabContainer) {
         let containerId = container.id
+        let engineKind = container.engineKind
         Task { @MainActor in
             try PasswordManagerService.shared.deleteEntries(for: containerId)
 
-            await PrivacyService.clearAllWebsiteData(for: containerId)
+            await PrivacyService.clearAllWebsiteData(for: containerId, engineKind: engineKind)
 
             guard let persistedContainer = fetchContainer(id: containerId) else {
                 SettingsStore.shared.removeContainerSettings(for: containerId)

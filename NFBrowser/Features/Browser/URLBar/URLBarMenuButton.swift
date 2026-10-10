@@ -146,7 +146,10 @@ struct URLBarMenuButton: View {
             let domain = tab.url.host
             Task { @MainActor in
                 do {
-                    let count = try await CookieImportService.shared.importFromArc(into: tab.container.id, domainFilter: domain)
+                    let count = try await CookieImportService.shared.importFromArc(
+                        into: tab.container,
+                        domainFilter: domain
+                    )
                     toastManager?.show("Imported \(count) cookies from Arc", icon: .system("arrow.down.doc.fill"))
                     tab.reload()
                 } catch {
@@ -168,7 +171,10 @@ struct URLBarMenuButton: View {
             guard let tab = activeTab else { return }
             Task { @MainActor in
                 do {
-                    let count = try await CookieImportService.shared.importFromArc(into: tab.container.id, domainFilter: nil)
+                    let count = try await CookieImportService.shared.importFromArc(
+                        into: tab.container,
+                        domainFilter: nil
+                    )
                     toastManager?.show("Imported \(count) total cookies from Arc", icon: .system("arrow.down.doc.fill"))
                     tab.reload()
                 } catch {
@@ -191,7 +197,10 @@ struct URLBarMenuButton: View {
             let domain = tab.url.host
             Task { @MainActor in
                 do {
-                    let count = try await CookieImportService.shared.importFromChrome(into: tab.container.id, domainFilter: domain)
+                    let count = try await CookieImportService.shared.importFromChrome(
+                        into: tab.container,
+                        domainFilter: domain
+                    )
                     toastManager?.show("Imported \(count) cookies from Chrome", icon: .system("arrow.down.doc.fill"))
                     tab.reload()
                 } catch {
@@ -213,7 +222,10 @@ struct URLBarMenuButton: View {
             guard let tab = activeTab else { return }
             Task { @MainActor in
                 do {
-                    let count = try await CookieImportService.shared.importFromChrome(into: tab.container.id, domainFilter: nil)
+                    let count = try await CookieImportService.shared.importFromChrome(
+                        into: tab.container,
+                        domainFilter: nil
+                    )
                     toastManager?.show("Imported \(count) total cookies from Chrome", icon: .system("arrow.down.doc.fill"))
                     tab.reload()
                 } catch {
@@ -241,7 +253,11 @@ struct URLBarMenuButton: View {
                 guard response == .OK, let fileURL = panel.url, let data = try? Data(contentsOf: fileURL) else { return }
                 Task { @MainActor in
                     do {
-                        let count = try await CookieImportService.shared.importFromJSON(data: data, into: tab.container.id, domainFilter: tab.url.host)
+                        let count = try await CookieImportService.shared.importFromJSON(
+                            data: data,
+                            into: tab.container,
+                            domainFilter: tab.url.host
+                        )
                         toastManager?.show("Imported \(count) cookies from JSON", icon: .system("arrow.down.doc.fill"))
                         tab.reload()
                     } catch {

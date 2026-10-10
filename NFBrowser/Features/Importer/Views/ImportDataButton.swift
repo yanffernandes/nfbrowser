@@ -2,7 +2,6 @@ import AppKit
 import Security
 import SwiftData
 import SwiftUI
-import WebKit
 
 @MainActor
 private enum ArcImportProgress {
@@ -114,7 +113,7 @@ struct ArcImportController: View {
             counts.downloads = importDownloads(snapshot.downloads)
             try downloadManager.modelContext.save()
 
-            counts.cookies = await importCookies(snapshot.cookies) { processed, total in
+            counts.cookies = await importCookies(snapshot.cookies, into: dataContainer) { processed, total in
                 progressMessage = "Importing Arc cookies: \(processed.formatted()) / \(total.formatted())"
             }
 
@@ -335,12 +334,19 @@ struct ArcImportController: View {
         }
     }
 
+    /// Arc keeps one cookie jar per profile; it lands in the Space that also receives
+    /// the Arc passwords, on that Space's engine.
     @MainActor
     private func importCookies(
         _ records: [ArcCookieImportRecord],
+        into container: TabContainer,
         progress: (Int, Int) -> Void
     ) async -> Int {
-        let cookieStore = WKWebsiteDataStore.default().httpCookieStore
+        let profile = BrowserEngine.shared.makeProfile(
+            engineKind: container.engineKind,
+            identifier: container.id,
+            isPrivate: false
+        )
         var importableCookies: [HTTPCookie] = []
         var importedKeys = Set<String>()
 
@@ -364,36 +370,21 @@ struct ArcImportController: View {
                 properties[HTTPCookiePropertyKey(rawValue: "HttpOnly")] = "TRUE"
             }
 
-            guard let cookie = HTTPCookie(properties: properties) else { continue }
+            guard let cookie = HTTPCookie(properties: properties),
+                  importedKeys.insert(cookieIdentity(cookie)).inserted
+            else { continue }
             importableCookies.append(cookie)
-            importedKeys.insert(cookieIdentity(cookie))
         }
 
+        var importedCount = 0
         let batchSize = 100
         for start in stride(from: 0, to: importableCookies.count, by: batchSize) {
             let end = min(start + batchSize, importableCookies.count)
-            let group = DispatchGroup()
-            for cookie in importableCookies[start ..< end] {
-                group.enter()
-                cookieStore.setCookie(cookie) {
-                    group.leave()
-                }
-            }
-
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    group.wait()
-                    continuation.resume()
-                }
-            }
+            importedCount += await profile.importCookies(Array(importableCookies[start ..< end]))
             progress(end, importableCookies.count)
             await Task.yield()
         }
-
-        let storedCookies: [HTTPCookie] = await withCheckedContinuation { continuation in
-            cookieStore.getAllCookies { continuation.resume(returning: $0) }
-        }
-        return storedCookies.filter { importedKeys.contains(cookieIdentity($0)) }.count
+        return importedCount
     }
 
     private func cookieIdentity(_ cookie: HTTPCookie) -> String {

@@ -65,6 +65,7 @@
             await checkDevToolsBridge(viewA)
             checks["screenshot"] = await saveScreenshot(of: viewA)
             await checkPopupKeepsOpener(viewA)
+            await checkCookieImportAndClear()
             await checkDownload(viewA)
             if let stack = window?.contentView as? NSStackView {
                 let pageCheck = await ChromiumPageSmokeCheck().run(hostedIn: stack)
@@ -321,6 +322,44 @@
     }
 
     private extension ChromiumSmokeTest {
+        /// Cookies imported into a Chromium Space reach its pages, and clearing a site's
+        /// cookies removes them.
+        @MainActor
+        func checkCookieImportAndClear() async {
+            guard let stack = window?.contentView as? NSStackView,
+                  let url = URL(string: "https://example.com/"),
+                  let cookie = HTTPCookie(properties: [
+                      .domain: ".example.com",
+                      .path: "/",
+                      .name: "nf_imported",
+                      .value: "1",
+                      .secure: "TRUE",
+                      .expires: Date().addingTimeInterval(3600)
+                  ])
+            else { return }
+            let spaceID = UUID()
+            let profile = BrowserEngineProfile(engineKind: .chromium, identifier: spaceID, isPrivate: false)
+            let imported = await profile.importCookies([cookie])
+
+            let view = makeView(profile: spaceID.uuidString, persistent: true, url: url)
+            stack.addArrangedSubview(view)
+            _ = await waitForLoads([view], count: 1)
+            let visible = await evaluate(view, "document.cookie") as? String ?? ""
+
+            await withCheckedContinuation { continuation in
+                profile.clearData(ofTypes: [.cookies], forHost: "www.example.com") { continuation.resume() }
+            }
+            view.reload()
+            _ = await waitForLoads([view], count: 2)
+            let afterClear = await evaluate(view, "document.cookie") as? String ?? ""
+            view.closeBrowser()
+            NFChromiumRuntime.shared.removeProfile(spaceID.uuidString)
+
+            report["cookies"] = ["imported": imported, "visible": visible, "after_clear": afterClear]
+            checks["cookie_import"] = imported == 1 && visible.contains("nf_imported=1")
+            checks["cookie_clear_for_host"] = !afterClear.contains("nf_imported")
+        }
+
         /// window.open() with window features must open a real popup that keeps
         /// window.opener, which OAuth sign-in flows depend on.
         @MainActor
