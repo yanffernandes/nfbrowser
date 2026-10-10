@@ -2,4 +2,5 @@
 // Keep C++ out of these headers; it lives in the .mm files.
 #import "NFChromiumApplication.h"
 #import "NFChromiumBrowserView.h"
+#import "NFChromiumContentRuleList.h"
 #import "NFChromiumRuntime.h"

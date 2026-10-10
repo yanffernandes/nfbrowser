@@ -60,6 +60,11 @@ targets:
       - path: NFBrowser
         excludes:
           - "Assets/Icons/**"
+          - "Core/BrowserEngine/Chromium/Bridge/NFChromiumContentRuleList.mm"
+      # Filter lists run for every request; optimize them even in Debug, which is what
+      # install.sh builds.
+      - path: NFBrowser/Core/BrowserEngine/Chromium/Bridge/NFChromiumContentRuleList.mm
+        compilerFlags: "-O2"
     resources:
       - path: NFBrowser/Shared/EmojiPicker/emoji-set.json
       - path: NFBrowser/Resources
@@ -194,6 +199,8 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+        # The engine bridge classes (Objective-C only, no C++) for tests that use them.
+        SWIFT_OBJC_BRIDGING_HEADER: NFBrowser/Core/BrowserEngine/Chromium/Bridge/NFChromiumBridge.h
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/NFBrowser.app/Contents/MacOS/NFBrowser"
         BUNDLE_LOADER: "$(TEST_HOST)"
 

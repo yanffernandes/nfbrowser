@@ -1,5 +1,7 @@
 #import <AppKit/AppKit.h>
 
+@class NFChromiumContentRuleList;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class NFChromiumBrowserView;
@@ -108,6 +110,9 @@ typedef NS_ENUM(NSInteger, NFChromiumJavaScriptDialogType) {
 /// Hosts blocked when a page loads them as a third party (tracker protection);
 /// subdomains of a listed host are blocked too.
 @property (nonatomic, copy) NSSet<NSString *> *blockedThirdPartyHosts;
+/// Filter lists applied, as WebKit applies content rule lists, to every load and
+/// document in this view.
+@property (nonatomic, copy) NSArray<NFChromiumContentRuleList *> *contentRuleLists;
 /// DevTools events forwarded to the delegate; nil forwards all of them.
 @property (nonatomic, copy, nullable) NSSet<NSString *> *observedDevToolsEvents;
 

@@ -11,6 +11,7 @@
 #include "include/cef_devtools_message_observer.h"
 #include "include/cef_parser.h"
 
+#import "NFChromiumContentRuleList+Internal.h"
 #import "NFChromiumRuntime+Internal.h"
 
 static NSString *const NFChromiumBrowserErrorDomain = @"NFChromiumBrowserView";
@@ -108,6 +109,7 @@ static NSDictionary *NFDictionary(id _Nullable object) {
 - (void)nf_loadStarted:(nullable NSURL *)url;
 - (void)nf_loadEnded:(nullable NSURL *)url httpStatusCode:(int)httpStatusCode;
 - (void)nf_loadFailed:(nullable NSURL *)url errorCode:(int)errorCode errorText:(NSString *)errorText;
+- (void)nf_contentBlockedPage:(nullable NSURL *)url;
 - (void)nf_requestNewTabWithURL:(NSURL *)url userGesture:(BOOL)userGesture inBackground:(BOOL)inBackground;
 - (void)nf_browserCreated:(CefRefPtr<CefBrowser>)browser;
 - (void)nf_browserDidClose;
@@ -141,6 +143,11 @@ class NFTrackerBlocklist {
         top_host_ = std::move(host);
     }
 
+    std::string TopHost() {
+        std::lock_guard<std::mutex> guard(lock_);
+        return top_host_;
+    }
+
     bool IsEnabled() {
         std::lock_guard<std::mutex> guard(lock_);
         return !blocked_hosts_.empty();
@@ -150,7 +157,7 @@ class NFTrackerBlocklist {
     // to the page. Google and YouTube pages are exempt, as in the WebKit rules.
     bool ShouldBlock(const std::string &host) {
         std::lock_guard<std::mutex> guard(lock_);
-        if (host.empty() || blocked_hosts_.empty() || RegistrableDomain(host) == RegistrableDomain(top_host_) ||
+        if (host.empty() || blocked_hosts_.empty() || nf::RegistrableDomain(host) == nf::RegistrableDomain(top_host_) ||
             IsWithin(top_host_, "google.com") || IsWithin(top_host_, "youtube.com")) {
             return false;
         }
@@ -176,36 +183,98 @@ class NFTrackerBlocklist {
                host.compare(host.size() - domain.size() - 1, domain.size() + 1, "." + domain) == 0;
     }
 
-    // Approximates the registrable domain: the last two labels, or three under
-    // common two-part suffixes such as co.uk and com.br.
-    static std::string RegistrableDomain(const std::string &host) {
-        std::vector<std::string> labels;
-        size_t start = 0;
-        while (true) {
-            size_t dot = host.find('.', start);
-            labels.push_back(host.substr(start, dot == std::string::npos ? std::string::npos : dot - start));
-            if (dot == std::string::npos) {
-                break;
-            }
-            start = dot + 1;
-        }
-        if (labels.size() <= 2) {
-            return host;
-        }
-        const std::string &secondLevel = labels[labels.size() - 2];
-        static const std::unordered_set<std::string> kSecondLevel = {"co", "com", "net", "org", "gov", "edu", "ac"};
-        size_t keep = labels.back().size() == 2 && kSecondLevel.count(secondLevel) > 0 ? 3 : 2;
-        std::string result;
-        for (size_t i = labels.size() - keep; i < labels.size(); ++i) {
-            result += (result.empty() ? "" : ".") + labels[i];
-        }
-        return result;
-    }
-
     std::mutex lock_;
     std::unordered_set<std::string> blocked_hosts_;
     std::string top_host_;
 };
+
+// The Space's filter lists, read on the IO thread for every request and on the UI
+// thread for every document.
+class NFContentRuleLists {
+   public:
+    void Set(std::vector<std::shared_ptr<const nf::ContentRuleSet>> lists) {
+        std::lock_guard<std::mutex> guard(lock_);
+        lists_ = std::move(lists);
+    }
+
+    std::vector<std::shared_ptr<const nf::ContentRuleSet>> Get() {
+        std::lock_guard<std::mutex> guard(lock_);
+        return lists_;
+    }
+
+    bool IsEmpty() {
+        std::lock_guard<std::mutex> guard(lock_);
+        return lists_.empty();
+    }
+
+   private:
+    std::mutex lock_;
+    std::vector<std::shared_ptr<const nf::ContentRuleSet>> lists_;
+};
+
+// Filter lists skip very long URLs, which are rarely ads, rather than run regexes on them.
+constexpr size_t kMaxFilteredURLLength = 8 * 1024;
+
+bool NFIsWebURL(const std::string &url) {
+    return url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0;
+}
+
+std::string NFLowercaseHost(const CefString &url) {
+    CefURLParts parts;
+    if (!CefParseURL(url, parts)) {
+        return "";
+    }
+    std::string host = CefString(&parts.host).ToString();
+    std::transform(host.begin(), host.end(), host.begin(), ::tolower);
+    return host;
+}
+
+// Safari's resource types for a Chromium request.
+uint32_t NFResourceTypes(cef_resource_type_t type) {
+    switch (type) {
+        case RT_MAIN_FRAME:
+        case RT_SUB_FRAME:
+            return nf::kResourceDocument;
+        case RT_STYLESHEET:
+            return nf::kResourceStyleSheet;
+        case RT_SCRIPT:
+        case RT_WORKER:
+        case RT_SHARED_WORKER:
+        case RT_SERVICE_WORKER:
+            return nf::kResourceScript;
+        case RT_IMAGE:
+        case RT_FAVICON:
+            return nf::kResourceImage;
+        case RT_FONT_RESOURCE:
+            return nf::kResourceFont;
+        case RT_MEDIA:
+            return nf::kResourceMedia;
+        case RT_XHR:
+            return nf::kResourceFetch | nf::kResourceRaw;
+        case RT_PING:
+        case RT_CSP_REPORT:
+            return nf::kResourcePing;
+        default:
+            return nf::kResourceOther | nf::kResourceRaw;
+    }
+}
+
+std::string NFJavaScriptString(const std::string &text) {
+    std::string literal = "\"";
+    for (const char c : text) {
+        if (c == '"' || c == '\\') {
+            literal += '\\';
+            literal += c;
+        } else if (static_cast<unsigned char>(c) < 0x20) {
+            char escaped[8];
+            snprintf(escaped, sizeof escaped, "\\u%04x", c);
+            literal += escaped;
+        } else {
+            literal += c;
+        }
+    }
+    return literal + "\"";
+}
 
 // window.open() popups that ask for a window (OAuth and payment sign-in flows) need
 // window.opener, so Chromium hosts them in its own native window. They get this
@@ -257,6 +326,7 @@ class NFChromiumClient : public CefClient,
     void Detach() { view_ = nil; }
 
     NFTrackerBlocklist &Blocklist() { return blocklist_; }
+    NFContentRuleLists &ContentRules() { return contentRules_; }
 
     CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
     CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
@@ -355,6 +425,37 @@ class NFChromiumClient : public CefClient,
         if (frame->IsMain()) {
             [view_ nf_loadStarted:NSURLFromCefString(frame->GetURL())];
         }
+        HideFilteredElements(browser, frame);
+    }
+
+    // Element hiding from the Space's filter lists, added to each document as it starts.
+    void HideFilteredElements(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame) {
+        const std::string url = frame->GetURL().ToString();
+        if (contentRules_.IsEmpty() || !NFIsWebURL(url)) {
+            return;
+        }
+        nf::ContentRequest document;
+        document.url = url;
+        document.host = NFLowercaseHost(url);
+        document.topHost = frame->IsMain() ? document.host : NFLowercaseHost(browser->GetMainFrame()->GetURL());
+        document.frameURL = url;
+        document.method = "get";
+        document.types = nf::kResourceDocument;
+        document.thirdParty = nf::RegistrableDomain(document.host) != nf::RegistrableDomain(document.topHost);
+        document.topFrame = frame->IsMain();
+        std::string css;
+        for (const auto &list : contentRules_.Get()) {
+            css += nf::HidingStyleSheet(*list, document);
+        }
+        if (css.empty()) {
+            return;
+        }
+        // An adopted stylesheet needs no element to hang on, so it applies before the
+        // document has any.
+        frame->ExecuteJavaScript("(() => { const sheet = new CSSStyleSheet(); sheet.replaceSync(" +
+                                     NFJavaScriptString(css) +
+                                     "); document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; })();",
+                                 url, 0);
     }
 
     void OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int httpStatusCode) override {
@@ -432,8 +533,8 @@ class NFChromiumClient : public CefClient,
         return false;
     }
 
-    // Called on the IO thread. Main-frame navigations are what the user asked for, so
-    // only subresources and subframes go through the tracker blocklist.
+    // Called on the IO thread, for every request while tracker protection or a filter
+    // list is on.
     CefRefPtr<CefResourceRequestHandler> GetResourceRequestHandler(CefRefPtr<CefBrowser> browser,
                                                                    CefRefPtr<CefFrame> frame,
                                                                    CefRefPtr<CefRequest> request,
@@ -441,7 +542,7 @@ class NFChromiumClient : public CefClient,
                                                                    bool is_download,
                                                                    const CefString &request_initiator,
                                                                    bool &disable_default_handling) override {
-        if (!blocklist_.IsEnabled() || (is_navigation && frame && frame->IsMain())) {
+        if (!blocklist_.IsEnabled() && contentRules_.IsEmpty()) {
             return nullptr;
         }
         return this;
@@ -449,17 +550,52 @@ class NFChromiumClient : public CefClient,
 
     // CefResourceRequestHandler (IO thread)
 
+    // Main-frame navigations are what the user asked for, so the tracker blocklist
+    // leaves them alone; filter lists apply to every load, as content rule lists do in
+    // WebKit.
     cef_return_value_t OnBeforeResourceLoad(CefRefPtr<CefBrowser> browser,
                                             CefRefPtr<CefFrame> frame,
                                             CefRefPtr<CefRequest> request,
                                             CefRefPtr<CefCallback> callback) override {
-        CefURLParts parts;
-        if (!CefParseURL(request->GetURL(), parts)) {
+        const std::string url = request->GetURL().ToString();
+        const std::string host = NFLowercaseHost(url);
+        const cef_resource_type_t resourceType = request->GetResourceType();
+        const bool isPage = resourceType == RT_MAIN_FRAME;
+        if (host.empty()) {
             return RV_CONTINUE;
         }
-        std::string host = CefString(&parts.host).ToString();
-        std::transform(host.begin(), host.end(), host.begin(), ::tolower);
-        return blocklist_.ShouldBlock(host) ? RV_CANCEL : RV_CONTINUE;
+        if (!isPage && blocklist_.ShouldBlock(host)) {
+            return RV_CANCEL;
+        }
+        const auto lists = contentRules_.Get();
+        if (lists.empty() || !NFIsWebURL(url) || url.size() > kMaxFilteredURLLength) {
+            return RV_CONTINUE;
+        }
+        nf::ContentRequest content;
+        content.url = url;
+        content.host = host;
+        content.topHost = isPage ? host : blocklist_.TopHost();
+        const bool isDocument = isPage || resourceType == RT_SUB_FRAME;
+        content.frameURL = isDocument || !frame ? url : frame->GetURL().ToString();
+        content.method = request->GetMethod().ToString();
+        std::transform(content.method.begin(), content.method.end(), content.method.begin(), ::tolower);
+        content.types = NFResourceTypes(resourceType);
+        content.thirdParty = !isPage && nf::RegistrableDomain(host) != nf::RegistrableDomain(content.topHost);
+        content.topFrame = isPage || (resourceType != RT_SUB_FRAME && (!frame || frame->IsMain()));
+        for (const auto &list : lists) {
+            if (!nf::ShouldBlock(*list, content)) {
+                continue;
+            }
+            if (isPage) {
+                NFChromiumBrowserView *view = view_;
+                NSURL *pageURL = NSURLFromCefString(request->GetURL());
+                dispatch_async(dispatch_get_main_queue(), ^{
+                  [view nf_contentBlockedPage:pageURL];
+                });
+            }
+            return RV_CANCEL;
+        }
+        return RV_CONTINUE;
     }
 
     // CefJSDialogHandler
@@ -515,6 +651,7 @@ class NFChromiumClient : public CefClient,
    private:
     __weak NFChromiumBrowserView *view_;
     NFTrackerBlocklist blocklist_;
+    NFContentRuleLists contentRules_;
     IMPLEMENT_REFCOUNTING(NFChromiumClient);
 };
 
@@ -550,6 +687,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
         _downloads = [NSMutableDictionary dictionary];
         _allowedInsecureHosts = [NSSet set];
         _blockedThirdPartyHosts = [NSSet set];
+        _contentRuleLists = @[];
     }
     return self;
 }
@@ -577,6 +715,22 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
         hosts.insert(host.lowercaseString.UTF8String);
     }
     _client->Blocklist().SetBlockedHosts(std::move(hosts));
+}
+
+- (void)setContentRuleLists:(NSArray<NFChromiumContentRuleList *> *)lists {
+    _contentRuleLists = [lists copy];
+    [self applyContentRuleListsToClient];
+}
+
+- (void)applyContentRuleListsToClient {
+    if (!_client) {
+        return;
+    }
+    std::vector<std::shared_ptr<const nf::ContentRuleSet>> ruleSets;
+    for (NFChromiumContentRuleList *list in _contentRuleLists) {
+        ruleSets.push_back(list.ruleSet);
+    }
+    _client->ContentRules().Set(std::move(ruleSets));
 }
 
 - (BOOL)hasBrowser {
@@ -654,6 +808,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     _pendingURL = nil;
     _client = new NFChromiumClient(self);
     [self applyBlockedHostsToClient];
+    [self applyContentRuleListsToClient];
     if (!CefBrowserHost::CreateBrowser(windowInfo, _client, url, browserSettings, nullptr, context)) {
         _isCreatingBrowser = NO;
         [self nf_loadFailed:nil errorCode:-1 errorText:@"Chromium could not create the browser."];
@@ -985,6 +1140,11 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
                                                     didFailNavigationToURL:errorCode:errorText:)]) {
         [self.delegate chromiumBrowserView:self didFailNavigationToURL:url errorCode:errorCode errorText:errorText];
     }
+}
+
+// Reported as Chrome reports a page an extension blocks: ERR_BLOCKED_BY_CLIENT.
+- (void)nf_contentBlockedPage:(NSURL *)url {
+    [self nf_loadFailed:url errorCode:-20 errorText:@"A content blocker blocked this page."];
 }
 
 - (void)nf_requestNewTabWithURL:(NSURL *)url userGesture:(BOOL)userGesture inBackground:(BOOL)inBackground {

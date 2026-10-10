@@ -29,8 +29,18 @@ final class ChromiumBrowserPage: NSObject, BrowserPage {
         super.init()
         browserView.delegate = self
         browserView.observedDevToolsEvents = ["Runtime.bindingCalled"]
+        // The first navigation waits for the bridge and the Space's filter lists.
+        let readiness = DispatchGroup()
         applyPrivacySettings(configuration.privacySettings, profile: profile)
-        installPageBridge(userScripts: configuration.userScripts)
+        loadFilterLists(forSpace: profile.identifier, readiness: readiness)
+        installPageBridge(userScripts: configuration.userScripts, readiness: readiness)
+        readiness.notify(queue: .main) { [weak self] in
+            self?.bridgeDidBecomeReady()
+        }
+        // Never hold the first navigation hostage to them.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.bridgeDidBecomeReady()
+        }
     }
 
     var contentView: NSView {
@@ -140,9 +150,28 @@ final class ChromiumBrowserPage: NSObject, BrowserPage {
         )
     }
 
+    /// The Space's filter lists, the same ones its WebKit pages compile, interpreted by
+    /// Chromium. Compiling a large list takes a while, so it happens off the main thread.
+    private func loadFilterLists(forSpace spaceID: UUID, readiness: DispatchGroup) {
+        let identifiers = BrowserPrivacyService.shared.activeRuleListIdentifiers(for: spaceID)
+        guard !identifiers.isEmpty else { return }
+        readiness.enter()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let lists = identifiers.compactMap { identifier in
+                NFChromiumContentRuleList(identifier: identifier) {
+                    ContentBlockerArtifactStore.shared.encodedRuleList(for: identifier)
+                }
+            }
+            DispatchQueue.main.async {
+                self?.browserView.contentRuleLists = lists
+                readiness.leave()
+            }
+        }
+    }
+
     /// Registers the message binding and the user scripts before the first navigation,
     /// so no document loads without them.
-    private func installPageBridge(userScripts: [BrowserUserScript]) {
+    private func installPageBridge(userScripts: [BrowserUserScript], readiness: DispatchGroup) {
         let sources = [ChromiumUserScripts.bridgeScript(bindingName: messageBindingName)]
             + userScripts.map(ChromiumUserScripts.chromiumSource(for:))
         // Page must be enabled for new-document scripts to run, and Runtime for the
@@ -151,20 +180,12 @@ final class ChromiumBrowserPage: NSObject, BrowserPage {
         browserView.sendDevToolsMethod("Runtime.enable", params: nil, completion: nil)
         browserView.sendDevToolsMethod("Runtime.addBinding", params: ["name": messageBindingName], completion: nil)
 
-        let group = DispatchGroup()
         for source in sources {
-            group.enter()
+            readiness.enter()
             browserView
                 .sendDevToolsMethod("Page.addScriptToEvaluateOnNewDocument", params: ["source": source]) { _, _ in
-                    group.leave()
+                    readiness.leave()
                 }
-        }
-        group.notify(queue: .main) { [weak self] in
-            self?.bridgeDidBecomeReady()
-        }
-        // Never hold the first navigation hostage to the bridge.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            self?.bridgeDidBecomeReady()
         }
     }
 
