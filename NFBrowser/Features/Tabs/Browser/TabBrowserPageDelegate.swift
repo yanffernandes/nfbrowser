@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-@preconcurrency import WebKit
 
 final class TabBrowserPageDelegate: BrowserPageDelegate {
     weak var tab: Tab?
@@ -43,29 +42,24 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
         return .openInNewTab
     }
 
-    func browserPage(
-        _ page: BrowserPage,
-        createWebViewWith configuration: WKWebViewConfiguration,
-        for navigationAction: WKNavigationAction,
-        windowFeatures: WKWindowFeatures
-    ) -> BrowserPage? {
+    func browserPage(_ page: BrowserPage, createPopupFor request: BrowserPopupRequest) -> BrowserPage? {
         guard let tab, let tabManager = tab.tabManager else { return nil }
 
         // If user held Shift+Command, they explicitly requested Peek preview
-        if navigationAction.modifierFlags.contains(.command) && navigationAction.modifierFlags.contains(.shift),
-           let url = navigationAction.request.url {
+        if request.modifierFlags.contains(.command), request.modifierFlags.contains(.shift),
+           let url = request.url
+        {
             MainActor.assumeIsolated {
                 tabManager.openPeek(url: url)
             }
             return nil
         }
 
-        let shouldFocus = !navigationAction.modifierFlags.contains(.command)
+        let shouldFocus = !request.modifierFlags.contains(.command)
 
         return MainActor.assumeIsolated {
             tabManager.createTabForNewWindow(
-                configuration: configuration,
-                navigationAction: navigationAction,
+                request: request,
                 parentTab: tab,
                 focusAfterOpening: shouldFocus
             )
@@ -144,15 +138,14 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
                 tab.updateHeaderColor()
             }
 
-            let wv = page.rawWebView
             if tab.qaState.activeVisionFilter != .none {
                 MainActor.assumeIsolated {
-                    AccessibilityFilterService.shared.applyFilter(tab.qaState.activeVisionFilter, to: wv)
+                    AccessibilityFilterService.shared.applyFilter(tab.qaState.activeVisionFilter, to: page)
                 }
             }
             if tab.qaState.forcedColorScheme != .system {
                 MainActor.assumeIsolated {
-                    AccessibilityFilterService.shared.applyColorScheme(tab.qaState.forcedColorScheme, to: wv)
+                    AccessibilityFilterService.shared.applyColorScheme(tab.qaState.forcedColorScheme, to: page)
                 }
             }
 

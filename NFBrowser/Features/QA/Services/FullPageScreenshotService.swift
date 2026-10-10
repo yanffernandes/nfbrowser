@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import WebKit
 
 final class FullPageScreenshotService {
     static let shared = FullPageScreenshotService()
@@ -8,12 +7,11 @@ final class FullPageScreenshotService {
     private init() {}
 
     @MainActor
-    func captureScreenshot(from webView: WKWebView, copyToClipboard: Bool = false) async throws -> URL? {
-        let snapshotConfig = WKSnapshotConfiguration()
-        snapshotConfig.afterScreenUpdates = true
+    func captureScreenshot(from page: BrowserPage, copyToClipboard: Bool = false) async throws -> URL? {
+        let snapshotConfig = BrowserSnapshotConfiguration(rect: nil, afterScreenUpdates: true)
 
         let image: NSImage = try await withCheckedThrowingContinuation { continuation in
-            webView.takeSnapshot(with: snapshotConfig) { image, error in
+            page.takeSnapshot(configuration: snapshotConfig) { image, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let image {
@@ -39,7 +37,7 @@ final class FullPageScreenshotService {
 
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        let host = webView.url?.host ?? "screenshot"
+        let host = page.currentURL?.host ?? "screenshot"
         let fileName = "\(host)_\(timestamp).png"
         let fileURL = downloads.appendingPathComponent(fileName)
 

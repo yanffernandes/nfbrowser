@@ -267,9 +267,13 @@ typealias OraRoot = NFBrowserRoot
                         if let source = note.object as? NSWindow {
                             guard source === window ?? NSApp.keyWindow else { return }
                         }
-                        guard let webView = tabManager.activeTab?.browserPage?.rawWebView else { return }
+                        guard let page = tabManager.activeTab?.browserPage else { return }
                         do {
-                            if let _ = try await FullPageScreenshotService.shared.captureScreenshot(from: webView, copyToClipboard: true) {
+                            let savedURL = try await FullPageScreenshotService.shared.captureScreenshot(
+                                from: page,
+                                copyToClipboard: true
+                            )
+                            if savedURL != nil {
                                 toastManager.show("Screenshot saved & copied", icon: .system("camera"))
                             }
                         } catch {

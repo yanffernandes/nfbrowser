@@ -1,18 +1,12 @@
 import AppKit
 import Foundation
-@preconcurrency import WebKit
 
 protocol BrowserPageDelegate: AnyObject {
     func browserPage(
         _ page: BrowserPage,
         decidePolicyFor navigationAction: BrowserNavigationAction
     ) -> BrowserNavigationActionDisposition
-    func browserPage(
-        _ page: BrowserPage,
-        createWebViewWith configuration: WKWebViewConfiguration,
-        for navigationAction: WKNavigationAction,
-        windowFeatures: WKWindowFeatures
-    ) -> BrowserPage?
+    func browserPage(_ page: BrowserPage, createPopupFor request: BrowserPopupRequest) -> BrowserPage?
     func browserPageDidClose(_ page: BrowserPage)
     func browserPage(_ page: BrowserPage, didRequestOpenInNewTab url: URL)
     func browserPage(_ page: BrowserPage, didUpdateNavigation event: BrowserNavigationEvent)
@@ -48,12 +42,7 @@ extension BrowserPageDelegate {
         .allow
     }
 
-    func browserPage(
-        _ page: BrowserPage,
-        createWebViewWith configuration: WKWebViewConfiguration,
-        for navigationAction: WKNavigationAction,
-        windowFeatures: WKWindowFeatures
-    ) -> BrowserPage? {
+    func browserPage(_ page: BrowserPage, createPopupFor request: BrowserPopupRequest) -> BrowserPage? {
         nil
     }
 

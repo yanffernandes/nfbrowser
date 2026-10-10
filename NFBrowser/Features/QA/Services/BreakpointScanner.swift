@@ -1,5 +1,4 @@
 import Foundation
-import WebKit
 
 final class BreakpointScanner {
     static let shared = BreakpointScanner()
@@ -45,15 +44,15 @@ final class BreakpointScanner {
     """
 
     @MainActor
-    func scanBreakpoints(in webView: WKWebView) async -> [Int] {
-        do {
-            let result = try await webView.evaluateJavaScript(Self.extractionScript)
-            if let numbers = result as? [NSNumber] {
-                return numbers.map { $0.intValue }
+    func scanBreakpoints(in page: BrowserPage) async -> [Int] {
+        await withCheckedContinuation { continuation in
+            page.evaluateJavaScript(Self.extractionScript) { result, error in
+                guard error == nil, let numbers = result as? [NSNumber] else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                continuation.resume(returning: numbers.map(\.intValue))
             }
-            return []
-        } catch {
-            return []
         }
     }
 }

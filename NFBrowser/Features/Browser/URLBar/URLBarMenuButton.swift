@@ -267,10 +267,14 @@ struct URLBarMenuButton: View {
         )
         screenshotItem.keyEquivalentModifierMask = [.command, .shift]
         let screenshotDelegate = MenuActions { [weak activeTab, weak toastManager] in
-            guard let webView = activeTab?.browserPage?.rawWebView else { return }
+            guard let page = activeTab?.browserPage else { return }
             Task { @MainActor in
                 do {
-                    if let _ = try await FullPageScreenshotService.shared.captureScreenshot(from: webView, copyToClipboard: true) {
+                    let savedURL = try await FullPageScreenshotService.shared.captureScreenshot(
+                        from: page,
+                        copyToClipboard: true
+                    )
+                    if savedURL != nil {
                         toastManager?.show("Screenshot saved & copied", icon: .system("camera"))
                     }
                 } catch {
@@ -297,8 +301,8 @@ struct URLBarMenuButton: View {
             let delegate = MenuActions { [weak activeTab] in
                 guard let tab = activeTab else { return }
                 tab.qaState.activeVisionFilter = filter
-                if let webView = tab.browserPage?.rawWebView {
-                    AccessibilityFilterService.shared.applyFilter(filter, to: webView)
+                if let page = tab.browserPage {
+                    AccessibilityFilterService.shared.applyFilter(filter, to: page)
                 }
             }
             item.target = delegate
@@ -323,8 +327,8 @@ struct URLBarMenuButton: View {
             let delegate = MenuActions { [weak activeTab] in
                 guard let tab = activeTab else { return }
                 tab.qaState.forcedColorScheme = scheme
-                if let webView = tab.browserPage?.rawWebView {
-                    AccessibilityFilterService.shared.applyColorScheme(scheme, to: webView)
+                if let page = tab.browserPage {
+                    AccessibilityFilterService.shared.applyColorScheme(scheme, to: page)
                 }
             }
             item.target = delegate
