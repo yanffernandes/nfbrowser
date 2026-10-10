@@ -316,7 +316,7 @@ extension ChromiumBrowserPage: NFChromiumBrowserViewDelegate {
 
     func chromiumBrowserView(
         _ view: NFChromiumBrowserView,
-        requestMediaAccessFor origin: URL?,
+        requestMediaAccessForOrigin origin: URL?,
         video: Bool,
         audio: Bool,
         decision: @escaping (Bool) -> Void
