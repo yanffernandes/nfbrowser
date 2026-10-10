@@ -145,6 +145,9 @@ struct BrowserView: View {
         }
         .onAppear {
             browserAgentTerminal.attach(tabManager: tabManager)
+            #if DEBUG
+                DebugAutomation.run(tabManager: tabManager, agentTerminal: browserAgentTerminal)
+            #endif
             if let tab = tabManager.activeTab, !tab.isWebViewReady {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     tab.restoreTransientState(

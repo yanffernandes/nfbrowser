@@ -234,6 +234,16 @@ extension ChromiumBrowserPage: NFChromiumBrowserViewDelegate {
         delegate?.browserPage(self, didRequestOpenInNewTab: url)
     }
 
+    /// Chromium also titles pages that have no <title> (host and path), and titles can
+    /// change after load; both reach the tab through the page scripts' update channel.
+    func chromiumBrowserView(_ view: NFChromiumBrowserView, didChangeTitle title: String) {
+        guard isBridgeReady, !title.isEmpty, let url = view.currentURL, url.scheme != "about",
+              let data = try? JSONSerialization.data(withJSONObject: ["href": url.absoluteString, "title": title]),
+              let body = String(data: data, encoding: .utf8)
+        else { return }
+        delegate?.browserPage(self, didReceiveScriptMessage: BrowserScriptMessage(name: "listener", body: body))
+    }
+
     func chromiumBrowserViewDidClose(_ view: NFChromiumBrowserView) {
         delegate?.browserPageDidClose(self)
     }
