@@ -117,6 +117,10 @@ static NSDictionary *NFDictionary(id _Nullable object) {
                               callback:(CefRefPtr<CefMediaAccessCallback>)callback;
 - (void)nf_devToolsResult:(int)messageId success:(BOOL)success data:(NSData *)data;
 - (void)nf_devToolsEvent:(NSString *)method data:(NSData *)data;
+- (BOOL)nf_runJavaScriptDialog:(NFChromiumJavaScriptDialogType)type
+                       message:(NSString *)message
+             defaultPromptText:(NSString *)defaultPromptText
+                      callback:(CefRefPtr<CefJSDialogCallback>)callback;
 @end
 
 namespace {
@@ -128,6 +132,9 @@ class NFChromiumClient : public CefClient,
                          public CefDisplayHandler,
                          public CefDownloadHandler,
                          public CefPermissionHandler,
+                         public CefRequestHandler,
+                         public CefJSDialogHandler,
+                         public CefKeyboardHandler,
                          public CefDevToolsMessageObserver {
    public:
     explicit NFChromiumClient(NFChromiumBrowserView *view) : view_(view) {}
@@ -139,6 +146,9 @@ class NFChromiumClient : public CefClient,
     CefRefPtr<CefDisplayHandler> GetDisplayHandler() override { return this; }
     CefRefPtr<CefDownloadHandler> GetDownloadHandler() override { return this; }
     CefRefPtr<CefPermissionHandler> GetPermissionHandler() override { return this; }
+    CefRefPtr<CefRequestHandler> GetRequestHandler() override { return this; }
+    CefRefPtr<CefJSDialogHandler> GetJSDialogHandler() override { return this; }
+    CefRefPtr<CefKeyboardHandler> GetKeyboardHandler() override { return this; }
 
     // CefLifeSpanHandler
 
@@ -284,6 +294,52 @@ class NFChromiumClient : public CefClient,
                                            callback:callback];
     }
 
+    // CefRequestHandler
+
+    bool OnCertificateError(CefRefPtr<CefBrowser> browser,
+                            cef_errorcode_t cert_error,
+                            const CefString &request_url,
+                            CefRefPtr<CefSSLInfo> ssl_info,
+                            CefRefPtr<CefCallback> callback) override {
+        NSString *host = NSURLFromCefString(request_url).host;
+        if (host && [view_.allowedInsecureHosts containsObject:host]) {
+            callback->Continue();
+            return true;
+        }
+        return false;
+    }
+
+    // CefJSDialogHandler
+
+    bool OnJSDialog(CefRefPtr<CefBrowser> browser,
+                    const CefString &origin_url,
+                    JSDialogType dialog_type,
+                    const CefString &message_text,
+                    const CefString &default_prompt_text,
+                    CefRefPtr<CefJSDialogCallback> callback,
+                    bool &suppress_message) override {
+        NFChromiumJavaScriptDialogType type = NFChromiumJavaScriptDialogTypeAlert;
+        if (dialog_type == JSDIALOGTYPE_CONFIRM) {
+            type = NFChromiumJavaScriptDialogTypeConfirm;
+        } else if (dialog_type == JSDIALOGTYPE_PROMPT) {
+            type = NFChromiumJavaScriptDialogTypePrompt;
+        }
+        return [view_ nf_runJavaScriptDialog:type
+                                     message:NSStringFromCefString(message_text)
+                           defaultPromptText:NSStringFromCefString(default_prompt_text)
+                                    callback:callback];
+    }
+
+    // CefKeyboardHandler
+
+    // Command shortcuts the page did not consume go to the app menu (Cmd+L, Cmd+T, ...).
+    bool OnKeyEvent(CefRefPtr<CefBrowser> browser, const CefKeyEvent &event, CefEventHandle os_event) override {
+        if (event.type != KEYEVENT_RAWKEYDOWN || !(event.modifiers & EVENTFLAG_COMMAND_DOWN) || !os_event) {
+            return false;
+        }
+        return [NSApp.mainMenu performKeyEquivalent:(__bridge NSEvent *)os_event];
+    }
+
     // CefDevToolsMessageObserver
 
     void OnDevToolsMethodResult(CefRefPtr<CefBrowser> browser,
@@ -338,6 +394,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
         _pendingActions = [NSMutableArray array];
         _devToolsCompletions = [NSMutableDictionary dictionary];
         _downloads = [NSMutableDictionary dictionary];
+        _allowedInsecureHosts = [NSSet set];
     }
     return self;
 }
@@ -357,6 +414,14 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
 
 - (void)viewDidMoveToWindow {
     [super viewDidMoveToWindow];
+    if (self.window != nil) {
+        [self ensureBrowser];
+    }
+}
+
+// CEF creates the child browser only under a view that is already in a window;
+// earlier loads and DevTools calls wait in the queue until then.
+- (void)ensureBrowser {
     if (self.window != nil && !_browser && !_isCreatingBrowser && !_closeRequested) {
         [self createBrowser];
     }
@@ -440,6 +505,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     }
     if (!_browser) {
         _pendingURL = url;
+        [self ensureBrowser];
         return;
     }
     _browser->GetMainFrame()->LoadURL(url.absoluteString.UTF8String);
@@ -523,6 +589,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
         [_pendingActions addObject:^{
           [weakSelf sendDevToolsMethod:method params:params completion:completion];
         }];
+        [self ensureBrowser];
         return;
     }
 
@@ -614,6 +681,9 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
 }
 
 - (void)nf_devToolsEvent:(NSString *)method data:(NSData *)data {
+    if (self.observedDevToolsEvents && ![self.observedDevToolsEvents containsObject:method]) {
+        return;
+    }
     if ([self.delegate respondsToSelector:@selector(chromiumBrowserView:didReceiveDevToolsEvent:params:)]) {
         [self.delegate chromiumBrowserView:self didReceiveDevToolsEvent:method params:NFDictionary(NFJSONObject(data))];
     }
@@ -737,6 +807,34 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     if ([self.delegate respondsToSelector:@selector(chromiumBrowserViewDidClose:)]) {
         [self.delegate chromiumBrowserViewDidClose:self];
     }
+}
+
+- (BOOL)nf_runJavaScriptDialog:(NFChromiumJavaScriptDialogType)type
+                       message:(NSString *)message
+             defaultPromptText:(NSString *)defaultPromptText
+                      callback:(CefRefPtr<CefJSDialogCallback>)callback {
+    id<NFChromiumBrowserViewDelegate> delegate = self.delegate;
+    SEL selector = @selector(chromiumBrowserView:runJavaScriptDialogOfType:message:defaultPromptText:completion:);
+    if (![delegate respondsToSelector:selector]) {
+        return NO;
+    }
+    // Leave Chromium's message loop first: app dialogs run modally.
+    __weak NFChromiumBrowserView *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      NFChromiumBrowserView *view = weakSelf;
+      if (!view) {
+          callback->Continue(false, CefString());
+          return;
+      }
+      [delegate chromiumBrowserView:view
+          runJavaScriptDialogOfType:type
+                            message:message
+                  defaultPromptText:defaultPromptText
+                         completion:^(BOOL accepted, NSString *userInput) {
+                           callback->Continue(accepted, userInput.UTF8String ?: "");
+                         }];
+    });
+    return YES;
 }
 
 - (NFChromiumDownload *)downloadForItem:(CefRefPtr<CefDownloadItem>)item {

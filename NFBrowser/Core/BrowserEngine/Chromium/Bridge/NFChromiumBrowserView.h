@@ -4,6 +4,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class NFChromiumBrowserView;
 
+typedef NS_ENUM(NSInteger, NFChromiumJavaScriptDialogType) {
+    NFChromiumJavaScriptDialogTypeAlert,
+    NFChromiumJavaScriptDialogTypeConfirm,
+    NFChromiumJavaScriptDialogTypePrompt,
+};
+
 /// A download started by a Chromium page. Values refresh on every update callback.
 @interface NFChromiumDownload : NSObject
 @property (nonatomic, readonly) uint32_t identifier;
@@ -62,10 +68,17 @@ NS_ASSUME_NONNULL_BEGIN
                           video:(BOOL)video
                           audio:(BOOL)audio
                        decision:(void (^)(BOOL granted))decision;
+/// alert/confirm/prompt. Called asynchronously, outside Chromium's message loop; call
+/// the completion exactly once. Without this method Chromium shows its own dialogs.
+- (void)chromiumBrowserView:(NFChromiumBrowserView *)view
+    runJavaScriptDialogOfType:(NFChromiumJavaScriptDialogType)type
+                      message:(NSString *)message
+            defaultPromptText:(NSString *)defaultPromptText
+                   completion:(void (^)(BOOL accepted, NSString *_Nullable userInput))completion;
 @end
 
-/// Hosts one Chromium browser (CEF, Alloy style) as a child view.
-/// The browser is created when the view first joins a window.
+/// Hosts one Chromium browser (CEF, Alloy style) as a child view. The browser is
+/// created on the first load or DevTools call, or when the view joins a window.
 @interface NFChromiumBrowserView : NSView
 
 /// `profileIdentifier` names the Chromium profile (one per Space). Persistent profiles
@@ -90,6 +103,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) double loadingProgress;
 /// Chromium zoom level: 0 is 100%, each step is a factor of 1.2.
 @property (nonatomic) double zoomLevel;
+/// Hosts whose certificate errors the user chose to accept.
+@property (nonatomic, copy) NSSet<NSString *> *allowedInsecureHosts;
+/// DevTools events forwarded to the delegate; nil forwards all of them.
+@property (nonatomic, copy, nullable) NSSet<NSString *> *observedDevToolsEvents;
 
 - (void)loadURL:(NSURL *)url;
 - (void)reload;

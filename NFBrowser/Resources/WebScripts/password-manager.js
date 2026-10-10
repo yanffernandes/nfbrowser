@@ -4,7 +4,13 @@
     }
     window.__oraPasswordManagerInstalled = true;
 
-    const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.passwordManager;
+    const webkitHandler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.passwordManager;
+    // Chromium pages have no window.webkit; the app bridge carries the same messages there.
+    const handler = webkitHandler || (window.__oraBridge && {
+        postMessage: function (message) {
+            window.__oraBridge.postMessage('passwordManager', message);
+        }
+    });
     if (!handler) {
         return;
     }

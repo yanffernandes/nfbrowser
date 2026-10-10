@@ -65,6 +65,11 @@
             await checkDevToolsBridge(viewA)
             checks["screenshot"] = await saveScreenshot(of: viewA)
             await checkDownload(viewA)
+            if let stack = window?.contentView as? NSStackView {
+                let pageCheck = await ChromiumPageSmokeCheck().run(hostedIn: stack)
+                report["chromium_page"] = pageCheck.report
+                checks.merge(pageCheck.checks) { $1 }
+            }
             recordResourceUsage()
             finish(failure: nil)
         }
@@ -169,31 +174,6 @@
                 report["framework_mb"] = directoryMegabytes(framework)
             }
         }
-
-        private static let pageFactsScript = """
-        ({
-          userAgent: navigator.userAgent,
-          brands: navigator.userAgentData ? navigator.userAgentData.brands.map(b => b.brand + ' ' + b.version) : [],
-          h264: MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E"'),
-          aac: MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"'),
-          vp9: MediaSource.isTypeSupported('video/webm; codecs="vp9"'),
-          av1: MediaSource.isTypeSupported('video/mp4; codecs="av01.0.05M.08"'),
-          opus: MediaSource.isTypeSupported('audio/webm; codecs="opus"'),
-          webkitMessageHandlers: typeof window.webkit !== 'undefined',
-          safariGlobal: typeof window.safari !== 'undefined'
-        })
-        """
-
-        private static let downloadScript = """
-        (() => {
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(new Blob(['nfbrowser chromium download'], {type: 'text/plain'}));
-          link.download = 'nf-smoke.txt';
-          document.body.appendChild(link);
-          link.click();
-          return 'clicked';
-        })()
-        """
 
         // MARK: - Helpers
 
@@ -349,6 +329,31 @@
     }
 
     private extension ChromiumSmokeTest {
+        static let pageFactsScript = """
+        ({
+          userAgent: navigator.userAgent,
+          brands: navigator.userAgentData ? navigator.userAgentData.brands.map(b => b.brand + ' ' + b.version) : [],
+          h264: MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E"'),
+          aac: MediaSource.isTypeSupported('audio/mp4; codecs="mp4a.40.2"'),
+          vp9: MediaSource.isTypeSupported('video/webm; codecs="vp9"'),
+          av1: MediaSource.isTypeSupported('video/mp4; codecs="av01.0.05M.08"'),
+          opus: MediaSource.isTypeSupported('audio/webm; codecs="opus"'),
+          webkitMessageHandlers: typeof window.webkit !== 'undefined',
+          safariGlobal: typeof window.safari !== 'undefined'
+        })
+        """
+
+        static let downloadScript = """
+        (() => {
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(new Blob(['nfbrowser chromium download'], {type: 'text/plain'}));
+          link.download = 'nf-smoke.txt';
+          document.body.appendChild(link);
+          link.click();
+          return 'clicked';
+        })()
+        """
+
         func hasProbe(_ value: Any?) -> Bool {
             guard let probe = value as? [String: Any] else { return false }
             let cookie = probe["cookie"] as? String ?? ""

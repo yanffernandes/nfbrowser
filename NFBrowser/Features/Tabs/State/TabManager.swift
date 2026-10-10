@@ -876,6 +876,12 @@ class TabManager: ObservableObject {
     }
 
     func refreshPrivacySettings(for containerId: UUID) {
+        rebuildLoadedPages(for: containerId)
+    }
+
+    /// Recreates the pages of a Space's loaded tabs so they pick up its current
+    /// privacy settings and browser engine.
+    func rebuildLoadedPages(for containerId: UUID) {
         guard let container = fetchContainer(id: containerId) else { return }
 
         let loadedTabs = container.tabs.filter(\.isWebViewReady)

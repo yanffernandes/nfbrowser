@@ -19,15 +19,16 @@ struct BrowserPageConfiguration {
         userScripts: [BrowserUserScript],
         privacySettings: SpacePrivacySettings
     ) -> BrowserPageConfiguration {
-        let ua: String = switch engineKind {
+        // Chromium pages report Chromium's own user agent.
+        let userAgent: String? = switch engineKind {
         case .webkit:
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
         case .chromium:
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            nil
         }
 
         return BrowserPageConfiguration(
-            userAgent: ua,
+            userAgent: userAgent,
             allowsPictureInPicture: true,
             allowsJavaScript: true,
             allowsJavaScriptWindowsAutomatically: true,
@@ -82,8 +83,10 @@ final class BrowserEngine {
         popupRequest: BrowserPopupRequest? = nil,
         delegate: BrowserPageDelegate?
     ) -> BrowserPage {
-        // Chromium Spaces still run on WebKit until the CEF-backed page lands.
-        WebKitBrowserPage(
+        if engineKind == .chromium {
+            return ChromiumBrowserPage(profile: profile, configuration: configuration, delegate: delegate)
+        }
+        return WebKitBrowserPage(
             engineKind: engineKind,
             profile: profile,
             configuration: configuration,

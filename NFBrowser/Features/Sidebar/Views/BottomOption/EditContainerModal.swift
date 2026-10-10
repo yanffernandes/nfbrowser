@@ -104,9 +104,13 @@ struct EditContainerModal: View {
     private func saveContainer() {
         guard !name.isEmpty else { return }
 
+        let engineChanged = container.engineKind != selectedEngine
         container.engineKind = selectedEngine
         tabManager.renameContainer(container, name: name, emoji: "", iconSystemName: iconSystemName)
         try? tabManager.modelContext.save()
+        if engineChanged {
+            tabManager.rebuildLoadedPages(for: container.id)
+        }
         dismiss()
     }
 }
