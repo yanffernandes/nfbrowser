@@ -43,7 +43,10 @@
             page.evaluateJavaScript("setTimeout(() => alert('hello-from-page'), 0); 'scheduled'")
             let alerted = await waitUntil(timeout: 10) { self.alerts.contains("hello-from-page") }
 
+            let background = await checkBackgroundLoad(hostedIn: stack, engine: engine)
+
             let report: [String: Any] = [
+                "background_tab": background,
                 "phases": phases.map { "\($0)" },
                 "messages": messages.map(\.name),
                 "globals": globals,
@@ -54,9 +57,36 @@
                 "page_script_bridge": bridged,
                 "page_hides_engine_globals": globals["webkit"] as? String == "undefined"
                     && globals["bindings"] as? Int == 0 && globals["bridge"] as? String == "object",
-                "page_js_dialog": alerted
+                "page_js_dialog": alerted,
+                "page_loads_in_background": background["loaded_before_shown"] as? Bool == true,
+                "page_moves_into_window": background["works_after_shown"] as? Bool == true
             ]
             return (report, checks)
+        }
+
+        /// A tab opened in the background loads before it is shown, then keeps working
+        /// once the app moves its view into a window.
+        @MainActor
+        private func checkBackgroundLoad(hostedIn stack: NSStackView, engine: BrowserEngine) async -> [String: Any] {
+            let watcher = ChromiumPageSmokeCheck()
+            let page = engine.makePage(
+                engineKind: .chromium,
+                profile: engine.makeProfile(engineKind: .chromium, identifier: UUID(), isPrivate: true),
+                configuration: .oraDefault(engineKind: .chromium, userScripts: [], privacySettings: .init()),
+                delegate: watcher
+            )
+            defer { page.teardown() }
+            guard let url = URL(string: "https://example.com/?background") else { return [:] }
+            page.load(URLRequest(url: url))
+            let loaded = await waitUntil { watcher.phases.contains(.finished) }
+            let wasParked = page.contentView.window != nil && page.contentView.window !== stack.window
+
+            stack.addArrangedSubview(page.contentView)
+            let title = await evaluate(page, "({title: document.title})")["title"] as? String
+            return [
+                "loaded_before_shown": loaded && wasParked,
+                "works_after_shown": page.contentView.window === stack.window && title == "Example Domain"
+            ]
         }
 
         @MainActor

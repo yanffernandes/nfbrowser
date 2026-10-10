@@ -16,9 +16,6 @@ NS_ASSUME_NONNULL_BEGIN
 /// memory and are shared by every browser that asks for the same identifier.
 - (CefRefPtr<CefRequestContext>)requestContextForProfile:(NSString *)identifier persistent:(BOOL)persistent;
 
-/// Drops the in-memory profile so its cookies and storage are discarded.
-- (void)discardEphemeralProfile:(NSString *)identifier;
-
 - (void)browserDidCreate:(CefRefPtr<CefBrowser>)browser;
 - (void)browserDidClose:(CefRefPtr<CefBrowser>)browser;
 

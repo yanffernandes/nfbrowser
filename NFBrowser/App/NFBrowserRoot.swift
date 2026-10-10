@@ -120,6 +120,14 @@ typealias OraRoot = NFBrowserRoot
             }
             .withTheme()
             .enableInjection()
+            .onDisappear {
+                // A private window's Chromium profiles live in memory; release them with it.
+                guard privacyMode.isPrivate else { return }
+                let containerIDs = (try? tabContext.fetch(FetchDescriptor<TabContainer>()))?.map(\.id) ?? []
+                for containerID in containerIDs {
+                    NFChromiumRuntime.shared.discardEphemeralProfile(containerID.uuidString)
+                }
+            }
             .onAppear {
                 downloadManager.toastManager = toastManager
                 tabManager.historyManager = historyManager

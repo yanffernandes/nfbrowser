@@ -455,12 +455,36 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     }
 }
 
-// CEF creates the child browser only under a view that is already in a window;
-// earlier loads and DevTools calls wait in the queue until then.
+// CEF creates child browsers only under a view that is in a window. A page that has
+// to load before the app shows it (a tab opened in the background) waits in an
+// offscreen window; the app's page host moves the view out when it shows the tab.
++ (NSWindow *)parkingWindow {
+    static NSWindow *window;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+      window = [[NSWindow alloc] initWithContentRect:NSMakeRect(-20000, -20000, 1280, 800)
+                                           styleMask:NSWindowStyleMaskBorderless
+                                             backing:NSBackingStoreBuffered
+                                               defer:NO];
+      window.releasedWhenClosed = NO;
+      window.excludedFromWindowsMenu = YES;
+      window.collectionBehavior = NSWindowCollectionBehaviorTransient | NSWindowCollectionBehaviorIgnoresCycle;
+    });
+    return window;
+}
+
 - (void)ensureBrowser {
-    if (self.window != nil && !_browser && !_isCreatingBrowser && !_closeRequested) {
-        [self createBrowser];
+    if (_browser || _isCreatingBrowser || _closeRequested) {
+        return;
     }
+    if (self.window == nil) {
+        NSView *parking = NFChromiumBrowserView.parkingWindow.contentView;
+        self.frame = parking.bounds;
+        // Joining the window calls viewDidMoveToWindow, which comes back here.
+        [parking addSubview:self];
+        return;
+    }
+    [self createBrowser];
 }
 
 - (void)createBrowser {

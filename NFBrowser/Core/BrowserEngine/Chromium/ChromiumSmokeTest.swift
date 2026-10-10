@@ -441,8 +441,9 @@
             let pipe = Pipe()
             process.standardOutput = pipe
             try? process.run()
-            process.waitUntilExit()
+            // Read before waiting: ps blocks once its output fills the pipe buffer.
             let output = String(bytes: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            process.waitUntilExit()
             var app = 0
             var helpers = 0
             for line in output.split(separator: "\n") {

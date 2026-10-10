@@ -43,6 +43,9 @@ NS_ASSUME_NONNULL_BEGIN
                   persistent:(BOOL)persistent
                   completion:(void (^)(void))completion;
 
+/// Drops an in-memory (private) profile so its cookies and storage are released.
+- (void)discardEphemeralProfile:(NSString *)profileIdentifier;
+
 /// Forgets a profile: its context is dropped now and its directory is deleted right
 /// away, or before Chromium starts next time if the running engine may still use it.
 - (void)removeProfile:(NSString *)profileIdentifier;
