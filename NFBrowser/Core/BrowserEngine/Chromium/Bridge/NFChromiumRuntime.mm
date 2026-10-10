@@ -163,6 +163,33 @@ class NFCefApp : public CefApp, public CefBrowserProcessHandler {
 };
 
 // Adapters from Objective-C blocks to CEF callback interfaces.
+// Runs work queued for a request context once Chromium has initialized it: a profile
+// on disk loads asynchronously, and its preferences can't be changed before that.
+class NFRequestContextHandler : public CefRequestContextHandler {
+   public:
+    void OnRequestContextInitialized(CefRefPtr<CefRequestContext> context) override {
+        initialized_ = true;
+        NSArray<dispatch_block_t> *blocks = [pending_ copy];
+        [pending_ removeAllObjects];
+        for (dispatch_block_t block in blocks) {
+            block();
+        }
+    }
+
+    void PerformWhenInitialized(dispatch_block_t block) {
+        if (initialized_) {
+            block();
+        } else {
+            [pending_ addObject:block];
+        }
+    }
+
+   private:
+    bool initialized_ = false;
+    NSMutableArray<dispatch_block_t> *pending_ = [NSMutableArray array];
+    IMPLEMENT_REFCOUNTING(NFRequestContextHandler);
+};
+
 class NFCompletionCallback : public CefCompletionCallback {
    public:
     explicit NFCompletionCallback(void (^block)(void)) : block_(block) {}
@@ -433,9 +460,20 @@ std::string SanitizedProfileComponent(NSString *identifier) {
         NSString *path = [_rootCacheURL URLByAppendingPathComponent:@(component.c_str()) isDirectory:YES].path;
         CefString(&settings.cache_path) = path.UTF8String;
     }
-    CefRefPtr<CefRequestContext> context = CefRequestContext::CreateContext(settings, nullptr);
+    CefRefPtr<CefRequestContext> context = CefRequestContext::CreateContext(settings, new NFRequestContextHandler());
     _requestContexts[key] = context;
     return context;
+}
+
+// Runs `block` with the profile's request context once Chromium has initialized it.
+- (void)performWhenProfileReady:(NSString *)identifier
+                     persistent:(BOOL)persistent
+                          block:(void (^)(CefRefPtr<CefRequestContext> context))block {
+    CefRefPtr<CefRequestContext> context = [self requestContextForProfile:identifier persistent:persistent];
+    // Every context is created above with this handler.
+    static_cast<NFRequestContextHandler *>(context->GetHandler().get())->PerformWhenInitialized(^{
+      block(context);
+    });
 }
 
 #pragma mark Profile data
@@ -531,19 +569,31 @@ std::string SanitizedProfileComponent(NSString *identifier) {
       if (!runtime.isRunning) {
           return;
       }
-      CefRefPtr<CefRequestContext> context = [runtime requestContextForProfile:identifier persistent:persistent];
-      // cookie_controls_mode 1 blocks third-party cookies; 0 allows them.
-      CefRefPtr<CefValue> mode = CefValue::Create();
-      mode->SetInt(policy == NFChromiumCookiePolicyAllowAll ? 0 : 1);
-      CefString error;
-      if (!context->SetPreference("profile.cookie_controls_mode", mode, error)) {
-          NSLog(@"[NFChromium] cookie policy: %s", error.ToString().c_str());
-      }
-      // Empty URLs set the profile-wide default.
-      context->SetContentSetting("", "", CEF_CONTENT_SETTING_TYPE_COOKIES,
-                                 policy == NFChromiumCookiePolicyBlockAll ? CEF_CONTENT_SETTING_VALUE_BLOCK
-                                                                          : CEF_CONTENT_SETTING_VALUE_DEFAULT);
+      [runtime performWhenProfileReady:identifier
+                            persistent:persistent
+                                 block:^(CefRefPtr<CefRequestContext> context) {
+                                   [NFChromiumRuntime applyCookiePolicy:policy toContext:context];
+                                 }];
     }];
+}
+
++ (void)applyCookiePolicy:(NFChromiumCookiePolicy)policy toContext:(CefRefPtr<CefRequestContext>)context {
+    // cookie_controls_mode 1 blocks third-party cookies; 0 allows them.
+    CefRefPtr<CefValue> mode = CefValue::Create();
+    mode->SetInt(policy == NFChromiumCookiePolicyAllowAll ? 0 : 1);
+    // Blocking all cookies changes the profile's default cookie setting. CEF can't set
+    // content-setting defaults on incognito profiles, but their preference works there
+    // too; a null value restores Chromium's default (allow).
+    CefRefPtr<CefValue> defaultSetting;
+    if (policy == NFChromiumCookiePolicyBlockAll) {
+        defaultSetting = CefValue::Create();
+        defaultSetting->SetInt(CEF_CONTENT_SETTING_VALUE_BLOCK);
+    }
+    CefString error;
+    if (!context->SetPreference("profile.cookie_controls_mode", mode, error) ||
+        !context->SetPreference("profile.default_content_setting_values.cookies", defaultSetting, error)) {
+        NSLog(@"[NFChromium] cookie policy: %s", error.ToString().c_str());
+    }
 }
 
 - (void)clearCacheForProfile:(NSString *)identifier persistent:(BOOL)persistent completion:(void (^)(void))completion {
