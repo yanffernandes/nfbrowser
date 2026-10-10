@@ -59,7 +59,7 @@ final class BrowserEngine {
         isPrivate: Bool
     ) -> BrowserEngineProfile {
         if isPrivate {
-            return BrowserEngineProfile(identifier: identifier, isPrivate: true)
+            return BrowserEngineProfile(engineKind: engineKind, identifier: identifier, isPrivate: true)
         }
 
         let key = ProfileKey(engineKind: engineKind, identifier: identifier, isPrivate: false)
@@ -70,7 +70,7 @@ final class BrowserEngine {
             return profile
         }
 
-        let profile = BrowserEngineProfile(identifier: identifier, isPrivate: false)
+        let profile = BrowserEngineProfile(engineKind: engineKind, identifier: identifier, isPrivate: false)
         profileCache[key] = profile
         return profile
     }
@@ -79,14 +79,15 @@ final class BrowserEngine {
         engineKind: BrowserEngineKind = .webkit,
         profile: BrowserEngineProfile,
         configuration: BrowserPageConfiguration,
-        customConfiguration: WKWebViewConfiguration? = nil,
+        popupRequest: BrowserPopupRequest? = nil,
         delegate: BrowserPageDelegate?
     ) -> BrowserPage {
-        BrowserPage(
+        // Chromium Spaces still run on WebKit until the CEF-backed page lands.
+        WebKitBrowserPage(
             engineKind: engineKind,
             profile: profile,
             configuration: configuration,
-            customConfiguration: customConfiguration,
+            customConfiguration: (popupRequest?.enginePayload as? WebKitPopupPayload)?.configuration,
             delegate: delegate
         )
     }

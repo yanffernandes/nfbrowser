@@ -35,10 +35,14 @@ struct BrowserWebContentView: View {
     }
 
     private func captureScreenshot() {
-        guard let webView = tab.browserPage?.rawWebView else { return }
+        guard let page = tab.browserPage else { return }
         Task { @MainActor in
             do {
-                if let fileURL = try await FullPageScreenshotService.shared.captureScreenshot(from: webView, copyToClipboard: true) {
+                let savedURL = try await FullPageScreenshotService.shared.captureScreenshot(
+                    from: page,
+                    copyToClipboard: true
+                )
+                if savedURL != nil {
                     ToastManager.shared.show("Screenshot copied & saved to Downloads", icon: .system("camera"))
                 }
             } catch {

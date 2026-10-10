@@ -538,12 +538,15 @@ struct OraTests {
         let initialContainer = initialTab.container
         let initialCount = initialContainer.tabs.count
 
-        let config = WKWebViewConfiguration()
         let targetURL = URL(string: "https://example.com/app/child")!
+        let request = BrowserPopupRequest(
+            url: targetURL,
+            modifierFlags: [],
+            enginePayload: WebKitPopupPayload(configuration: WKWebViewConfiguration())
+        )
 
         let page = tabManager.createTabForNewWindow(
-            configuration: config,
-            targetURL: targetURL,
+            request: request,
             parentTab: initialTab,
             focusAfterOpening: true
         )

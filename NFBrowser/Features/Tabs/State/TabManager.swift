@@ -419,22 +419,21 @@ class TabManager: ObservableObject {
 
     @discardableResult
     func createTabForNewWindow(
-        configuration: WKWebViewConfiguration,
-        navigationAction: WKNavigationAction,
+        request: BrowserPopupRequest,
         parentTab: Tab,
         focusAfterOpening: Bool = true
     ) -> BrowserPage? {
         createTabForNewWindow(
-            configuration: configuration,
-            targetURL: navigationAction.request.url,
+            popupRequest: request,
+            targetURL: request.url,
             parentTab: parentTab,
             focusAfterOpening: focusAfterOpening
         )
     }
 
     @discardableResult
-    func createTabForNewWindow(
-        configuration: WKWebViewConfiguration,
+    private func createTabForNewWindow(
+        popupRequest: BrowserPopupRequest,
         targetURL: URL? = nil,
         parentTab: Tab,
         focusAfterOpening: Bool = true
@@ -486,7 +485,7 @@ class TabManager: ObservableObject {
                 userScripts: userScripts,
                 privacySettings: privacySettings
             ),
-            customConfiguration: configuration,
+            popupRequest: popupRequest,
             delegate: nil
         )
 

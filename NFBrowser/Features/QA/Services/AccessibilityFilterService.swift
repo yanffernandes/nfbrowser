@@ -1,5 +1,4 @@
 import Foundation
-import WebKit
 
 enum VisionDefectFilter: String, CaseIterable, Identifiable {
     case none = "Normal"
@@ -45,7 +44,7 @@ final class AccessibilityFilterService {
     private init() {}
 
     @MainActor
-    func applyFilter(_ filter: VisionDefectFilter, to webView: WKWebView) {
+    func applyFilter(_ filter: VisionDefectFilter, to page: BrowserPage) {
         let cssFilter: String = switch filter {
         case .none:
             "none"
@@ -62,11 +61,11 @@ final class AccessibilityFilterService {
         }
 
         let js = "document.documentElement.style.filter = \(cssFilter == "none" ? "''" : "'\(cssFilter)'");"
-        webView.evaluateJavaScript(js, completionHandler: nil)
+        page.evaluateJavaScript(js)
     }
 
     @MainActor
-    func applyColorScheme(_ scheme: ForcedColorScheme, to webView: WKWebView) {
+    func applyColorScheme(_ scheme: ForcedColorScheme, to page: BrowserPage) {
         let js: String = switch scheme {
         case .system:
             """
@@ -103,6 +102,6 @@ final class AccessibilityFilterService {
             })();
             """
         }
-        webView.evaluateJavaScript(js, completionHandler: nil)
+        page.evaluateJavaScript(js)
     }
 }

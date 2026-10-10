@@ -2,18 +2,19 @@ import Foundation
 @preconcurrency import WebKit
 
 final class BrowserEngineProfile {
+    let engineKind: BrowserEngineKind
     let identifier: UUID
     let isPrivate: Bool
-    let dataStore: WKWebsiteDataStore
 
-    init(identifier: UUID, isPrivate: Bool) {
+    /// Created on first use, so a Space only gets a WebKit store when WebKit code asks for one.
+    private(set) lazy var dataStore: WKWebsiteDataStore = isPrivate
+        ? WKWebsiteDataStore.nonPersistent()
+        : WKWebsiteDataStore(forIdentifier: identifier)
+
+    init(engineKind: BrowserEngineKind = .webkit, identifier: UUID, isPrivate: Bool) {
+        self.engineKind = engineKind
         self.identifier = identifier
         self.isPrivate = isPrivate
-        if isPrivate {
-            dataStore = WKWebsiteDataStore.nonPersistent()
-        } else {
-            dataStore = WKWebsiteDataStore(forIdentifier: identifier)
-        }
     }
 
     func clearData(
@@ -21,6 +22,12 @@ final class BrowserEngineProfile {
         forHost host: String? = nil,
         completion: (() -> Void)? = nil
     ) {
+        guard engineKind == .webkit else {
+            // Chromium (P2): clear the Space's CEF profile here once CEF-backed pages exist.
+            completion?()
+            return
+        }
+
         let mappedTypes = mapWebsiteDataTypes(types)
         guard let host, !host.isEmpty else {
             dataStore.removeData(ofTypes: mappedTypes, modifiedSince: .distantPast) {

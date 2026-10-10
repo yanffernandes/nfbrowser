@@ -143,10 +143,10 @@ struct QAControlStrip: View {
 
             // Scan CSS Breakpoints
             Button {
-                guard let webView = tab.browserPage?.rawWebView else { return }
+                guard let page = tab.browserPage else { return }
                 isScanningBreakpoints = true
                 Task { @MainActor in
-                    let points = await BreakpointScanner.shared.scanBreakpoints(in: webView)
+                    let points = await BreakpointScanner.shared.scanBreakpoints(in: page)
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         qaState.discoveredBreakpoints = points
                         isScanningBreakpoints = false
@@ -165,8 +165,8 @@ struct QAControlStrip: View {
                 ForEach(VisionDefectFilter.allCases) { filter in
                     Button {
                         qaState.activeVisionFilter = filter
-                        if let webView = tab.browserPage?.rawWebView {
-                            AccessibilityFilterService.shared.applyFilter(filter, to: webView)
+                        if let page = tab.browserPage {
+                            AccessibilityFilterService.shared.applyFilter(filter, to: page)
                         }
                     } label: {
                         HStack {
@@ -190,8 +190,8 @@ struct QAControlStrip: View {
                 ForEach(ForcedColorScheme.allCases) { scheme in
                     Button {
                         qaState.forcedColorScheme = scheme
-                        if let webView = tab.browserPage?.rawWebView {
-                            AccessibilityFilterService.shared.applyColorScheme(scheme, to: webView)
+                        if let page = tab.browserPage {
+                            AccessibilityFilterService.shared.applyColorScheme(scheme, to: page)
                         }
                     } label: {
                         HStack {
