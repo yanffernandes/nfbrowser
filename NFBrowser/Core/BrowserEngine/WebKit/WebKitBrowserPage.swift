@@ -15,6 +15,7 @@ final class WebKitBrowserPage: NSObject, BrowserPage, WKNavigationDelegate, WKUI
     private var isReadyForNavigation = false
     private var pendingLoadRequest: URLRequest?
     private var pendingReload = false
+    private var loadGeneration = 0
 
     init(
         engineKind: BrowserEngineKind = .webkit,
@@ -243,13 +244,24 @@ final class WebKitBrowserPage: NSObject, BrowserPage, WKNavigationDelegate, WKUI
     }
 
     private func executeLoad(_ request: URLRequest) {
-        if let url = request.url, url.isFileURL {
-            // Scope read access to the file's own folder rather than the whole disk.
-            let readAccessURL = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
-            webView.loadFileURL(url, allowingReadAccessTo: readAccessURL)
+        loadGeneration += 1
+        guard let url = request.url, url.isFileURL else {
+            webView.load(request)
             return
         }
-        webView.load(request)
+        // Scope read access to the file's own folder rather than the whole disk.
+        let readAccessURL = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
+        // Folders such as Downloads raise a macOS privacy prompt on first access, and
+        // WebKit would wait for the answer on the main thread while it issues the
+        // sandbox extension. Touching the folder in the background moves that wait off it.
+        let generation = loadGeneration
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            _ = try? FileManager.default.contentsOfDirectory(atPath: readAccessURL.path)
+            DispatchQueue.main.async {
+                guard let self, self.loadGeneration == generation else { return }
+                self.webView.loadFileURL(url, allowingReadAccessTo: readAccessURL)
+            }
+        }
     }
 
     private func emitNavigationEvent(
