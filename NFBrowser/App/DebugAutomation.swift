@@ -4,6 +4,7 @@
     /// Debug-only launch options for driving a real browser window from scripts,
     /// used to verify engines end to end without touching the UI:
     /// - `--debug-space-engine <webkit|chromium>` switches the active Space's engine.
+    /// - `--debug-cross-engine` opens Cross-Engine Compare on the first loaded page.
     /// - `--debug-agent-bridge <file>` starts the agent browser bridge and writes the
     ///   environment for the bundled nf-browser CLI (endpoint and token) to `file`.
     enum DebugAutomation {
@@ -23,6 +24,16 @@
                 container.engineKind = engine
                 try? tabManager.modelContext.save()
                 tabManager.rebuildLoadedPages(for: container.id)
+            }
+
+            if arguments.contains("--debug-cross-engine") {
+                // Opens Cross-Engine Compare once the first page has finished loading.
+                Task { @MainActor in
+                    while tabManager.activeTab == nil || tabManager.activeTab?.isLoading == true {
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                    }
+                    tabManager.activeTab?.qaState.toggleCrossEngine()
+                }
             }
 
             if let path = value(after: "--debug-agent-bridge", in: arguments) {

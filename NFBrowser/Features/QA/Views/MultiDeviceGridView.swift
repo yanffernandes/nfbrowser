@@ -363,7 +363,7 @@ struct MultiDeviceWebViewHost: NSViewRepresentable {
         webView.customUserAgent = ua
         webView.load(URLRequest(url: url))
 
-        DeviceSyncBridge.shared.register(id: context.coordinator.id, webView: webView)
+        DeviceSyncBridge.shared.register(id: context.coordinator.id, peer: webView)
         return webView
     }
 

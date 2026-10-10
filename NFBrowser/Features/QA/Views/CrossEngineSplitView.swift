@@ -6,7 +6,7 @@ struct CrossEngineSplitView: View {
     let onCaptureScreenshot: () -> Void
 
     @State private var webkitWebView: WKWebView?
-    @State private var chromiumWebView: WKWebView?
+    @State private var chromiumView: NFChromiumBrowserView?
     @State private var webkitURL: URL?
     @State private var chromiumURL: URL?
 
@@ -37,7 +37,7 @@ struct CrossEngineSplitView: View {
                     // Right: Chromium Pane
                     enginePane(
                         title: "Chromium",
-                        subTitle: "Blink 131.0 Engine",
+                        subTitle: "Blink · Chromium \(NFChromiumRuntime.shared.chromiumVersion)",
                         icon: "globe",
                         engineKind: .chromium,
                         accentColor: Color.green
@@ -99,7 +99,7 @@ struct CrossEngineSplitView: View {
             // Reload Both
             Button {
                 webkitWebView?.reload()
-                chromiumWebView?.reload()
+                chromiumView?.reload()
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 12))
@@ -147,7 +147,6 @@ struct CrossEngineSplitView: View {
         )
     }
 
-    @ViewBuilder
     private func enginePane(
         title: String,
         subTitle: String,
@@ -173,19 +172,15 @@ struct CrossEngineSplitView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
 
-            // Webview frame
-            EngineWebViewHost(
-                url: tab.currentPageURL ?? tab.url,
-                engineKind: engineKind,
-                spaceID: tab.container.id,
-                onWebViewCreated: { wv in
-                    if engineKind == .webkit {
-                        webkitWebView = wv
-                    } else {
-                        chromiumWebView = wv
-                    }
+            // Engine view: each pane runs its real engine on the Space's own profile.
+            Group {
+                switch engineKind {
+                case .webkit:
+                    WebKitEngineHost(url: paneURL(for: .webkit), spaceID: tab.container.id) { webkitWebView = $0 }
+                case .chromium:
+                    ChromiumEngineHost(url: paneURL(for: .chromium), spaceID: tab.container.id) { chromiumView = $0 }
                 }
-            )
+            }
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -195,19 +190,29 @@ struct CrossEngineSplitView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    private func paneURL(for engineKind: BrowserEngineKind) -> URL {
+        let followed = engineKind == .webkit ? webkitURL : chromiumURL
+        return followed ?? tab.currentPageURL ?? tab.url
+    }
 }
 
-private struct EngineWebViewHost: NSViewRepresentable {
+/// WebKit pane: a WKWebView on the Space's WebKit store, mirrored with the Chromium pane.
+private struct WebKitEngineHost: NSViewRepresentable {
     let url: URL
-    let engineKind: BrowserEngineKind
     let spaceID: UUID
     let onWebViewCreated: (WKWebView) -> Void
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let id = UUID()
-        weak var webView: WKWebView?
+        var loadedURL: URL?
 
-        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
             if navigationAction.targetFrame == nil {
                 webView.load(navigationAction.request)
             }
@@ -221,48 +226,103 @@ private struct EngineWebViewHost: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        let profile = BrowserEngine.shared.makeProfile(
-            engineKind: engineKind,
-            identifier: spaceID,
-            isPrivate: false
-        )
+        let profile = BrowserEngine.shared.makeProfile(engineKind: .webkit, identifier: spaceID, isPrivate: false)
         config.websiteDataStore = profile.dataStore
         config.userContentController.add(DeviceSyncBridge.shared, name: DeviceSyncBridge.messageName)
-
-        let syncUserScript = WKUserScript(
+        config.userContentController.addUserScript(WKUserScript(
             source: DeviceSyncBridge.injectionScript,
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: false
-        )
-        config.userContentController.addUserScript(syncUserScript)
+        ))
 
         let webView = WKWebView(frame: .zero, configuration: config)
-        context.coordinator.webView = webView
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-
-        let ua = switch engineKind {
-        case .webkit:
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
-        case .chromium:
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        }
-        webView.customUserAgent = ua
+        webView.customUserAgent = BrowserPageConfiguration
+            .oraDefault(engineKind: .webkit, userScripts: [], privacySettings: .init())
+            .userAgent
         webView.load(URLRequest(url: url))
+        context.coordinator.loadedURL = url
 
-        DeviceSyncBridge.shared.register(id: context.coordinator.id, webView: webView)
-
+        DeviceSyncBridge.shared.register(id: context.coordinator.id, peer: webView)
         DispatchQueue.main.async {
             onWebViewCreated(webView)
         }
         return webView
     }
 
-    func updateNSView(_ nsView: WKWebView, context: Context) {}
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        guard context.coordinator.loadedURL != url else { return }
+        context.coordinator.loadedURL = url
+        webView.load(URLRequest(url: url))
+    }
 
-    static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
+    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
         DeviceSyncBridge.shared.unregister(id: coordinator.id)
-        nsView.stopLoading()
-        nsView.configuration.userContentController.removeScriptMessageHandler(forName: DeviceSyncBridge.messageName)
+        webView.stopLoading()
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: DeviceSyncBridge.messageName)
+    }
+}
+
+/// Chromium pane: a real Chromium browser on the Space's Chromium profile.
+private struct ChromiumEngineHost: NSViewRepresentable {
+    let url: URL
+    let spaceID: UUID
+    let onViewCreated: (NFChromiumBrowserView) -> Void
+
+    final class Coordinator: NSObject, NFChromiumBrowserViewDelegate {
+        let id = UUID()
+        var loadedURL: URL?
+
+        func chromiumBrowserView(
+            _ view: NFChromiumBrowserView,
+            didReceiveDevToolsEvent method: String,
+            params: [String: Any]
+        ) {
+            DeviceSyncBridge.shared.handleChromiumEvent(method: method, params: params, from: view)
+        }
+
+        /// Links that would open a tab stay in the pane, as in the WebKit pane.
+        func chromiumBrowserView(
+            _ view: NFChromiumBrowserView,
+            didRequestNewTabWith url: URL,
+            userGesture: Bool,
+            inBackground: Bool
+        ) {
+            view.load(url)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NFChromiumBrowserView {
+        let view = NFChromiumBrowserView(
+            frame: .zero,
+            profileIdentifier: spaceID.uuidString,
+            persistent: true,
+            initialURL: url
+        )
+        view.delegate = context.coordinator
+        view.observedDevToolsEvents = ["Runtime.bindingCalled"]
+        context.coordinator.loadedURL = url
+        DeviceSyncBridge.shared.installChromiumBridge(on: view)
+        DeviceSyncBridge.shared.register(id: context.coordinator.id, peer: view)
+        DispatchQueue.main.async {
+            onViewCreated(view)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NFChromiumBrowserView, context: Context) {
+        guard context.coordinator.loadedURL != url else { return }
+        context.coordinator.loadedURL = url
+        view.load(url)
+    }
+
+    static func dismantleNSView(_ view: NFChromiumBrowserView, coordinator: Coordinator) {
+        DeviceSyncBridge.shared.unregister(id: coordinator.id)
+        view.closeBrowser()
     }
 }
