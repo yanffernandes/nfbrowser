@@ -41,7 +41,6 @@ Chromium Spaces embed the real Chromium engine, so sites see Chrome and DevTools
 - No Widevine DRM (Netflix, Disney+, Spotify web).
 - No Chrome Web Store extensions in embedded tabs.
 - Google may refuse account sign-in in embedded browsers, and Chrome sync is not available.
-- Tracker protection and the cookie policy work in Chromium Spaces, but filter-list ad blocking still applies to WebKit Spaces only.
 - The engine adds about 275 MB to the app.
 
 Use a WebKit Space for anything that needs those. To update the engine, change the pinned version and SHA-1 in `scripts/setup-cef.sh`.
