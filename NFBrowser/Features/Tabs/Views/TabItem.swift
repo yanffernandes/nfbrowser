@@ -4,6 +4,7 @@ import SwiftUI
 struct LocalFavIcon: View {
     let faviconLocalFile: URL?
     let textColor: Color
+    var fallbackSystemImage: String = "globe"
 
     @State private var image: NSImage?
 
@@ -16,7 +17,7 @@ struct LocalFavIcon: View {
                     .frame(width: 16, height: 16)
                     .cornerRadius(4)
             } else {
-                Image(systemName: "globe")
+                Image(systemName: fallbackSystemImage)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 16, height: 16)
@@ -47,6 +48,7 @@ struct FavIcon: View {
     let faviconLocalFile: URL?
     let textColor: Color
     var isPlayingMedia: Bool = false
+    var fallbackSystemImage: String = "globe"
 
     var body: some View {
         HStack(spacing: 4) {
@@ -61,13 +63,15 @@ struct FavIcon: View {
                 } placeholder: {
                     LocalFavIcon(
                         faviconLocalFile: faviconLocalFile,
-                        textColor: textColor
+                        textColor: textColor,
+                        fallbackSystemImage: fallbackSystemImage
                     )
                 }
             } else {
                 LocalFavIcon(
                     faviconLocalFile: faviconLocalFile,
-                    textColor: textColor
+                    textColor: textColor,
+                    fallbackSystemImage: fallbackSystemImage
                 )
             }
 
@@ -112,7 +116,8 @@ struct TabItem: View {
                         favicon: tab.favicon,
                         faviconLocalFile: tab.faviconLocalFile,
                         textColor: textColor,
-                        isPlayingMedia: tab.isPlayingMedia
+                        isPlayingMedia: tab.isPlayingMedia,
+                        fallbackSystemImage: tab.url.isFileURL ? "doc.text" : "globe"
                     )
                     tabTitle
                     if tab.isAgentActive {

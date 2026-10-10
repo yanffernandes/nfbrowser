@@ -46,6 +46,18 @@ struct URLBar: View {
         }
     }
 
+    private func securityIconName(for url: URL) -> String {
+        if url.isFileURL {
+            return "doc.text"
+        }
+        return url.scheme == "https" ? "shield.lefthalf.filled" : "globe"
+    }
+
+    private var launcherInputIconName: String {
+        guard isValidURL(launcherInput) else { return "magnifyingglass" }
+        return constructURL(from: launcherInput)?.isFileURL == true ? "doc.text" : "globe"
+    }
+
     private func triggerCopy(_ text: String) {
         ClipboardUtils.triggerCopy(
             text,
@@ -332,7 +344,7 @@ struct URLBar: View {
                         .tint(buttonForegroundColor)
                         .scaleEffect(0.5)
                 } else {
-                    Image(systemName: tab.url.scheme == "https" ? "shield.lefthalf.filled" : "globe")
+                    Image(systemName: securityIconName(for: tab.url))
                         .font(.system(size: 12))
                         .foregroundColor(buttonForegroundColor)
                 }
@@ -402,7 +414,7 @@ struct URLBar: View {
 
     private func inlineLauncherInput(tab: Tab) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: isValidURL(launcherInput) ? "globe" : "magnifyingglass")
+            Image(systemName: launcherInputIconName)
                 .font(.system(size: 12))
                 .foregroundColor(buttonForegroundColor)
                 .frame(width: 16, height: 16)

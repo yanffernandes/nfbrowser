@@ -39,7 +39,11 @@ struct SidebarURLDisplay: View {
                             .scaleEffect(0.5)
                             .frame(width: 12, height: 12)
                     } else {
-                        if tab.url.scheme != "https" {
+                        if tab.url.isFileURL {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 12))
+                                .foregroundColor(theme.mutedForeground)
+                        } else if tab.url.scheme != "https" {
                             Image(systemName: "shield.slash")
                                 .font(.system(size: 12))
                                 .foregroundColor(theme.mutedForeground)

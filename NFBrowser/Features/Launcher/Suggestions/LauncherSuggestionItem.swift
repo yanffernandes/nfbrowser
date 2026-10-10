@@ -39,6 +39,13 @@ struct LauncherSuggestionItem: View {
         return isAIChat ? theme.background : theme.foreground.opacity(0.1)
     }
 
+    private var fallbackIconName: String {
+        if suggestion.url?.isFileURL == true {
+            return "doc.text"
+        }
+        return suggestion.type == .suggestedLink ? "globe" : "magnifyingglass"
+    }
+
     @ViewBuilder
     var icon: some View {
         if isAIChat, let suggestionIcon = suggestion.icon, !suggestionIcon.isEmpty {
@@ -53,7 +60,7 @@ struct LauncherSuggestionItem: View {
                 textColor: Color(.secondaryLabelColor)
             )
         } else {
-            Image(systemName: suggestion.type == .suggestedLink ? "globe" : "magnifyingglass")
+            Image(systemName: fallbackIconName)
                 .resizable()
                 .frame(width: 14, height: 14)
                 .foregroundStyle(

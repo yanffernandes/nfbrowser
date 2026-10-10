@@ -19,6 +19,15 @@ enum URLDisplayUtils {
             return URLDisplayParts(host: url.absoluteString, title: nil)
         }
 
+        if url.isFileURL {
+            let fileName = url.lastPathComponent.isEmpty ? "file" : url.lastPathComponent
+            let folder = url.deletingLastPathComponent().lastPathComponent
+            let displayHost = folder.isEmpty ? fileName : "\(folder)/\(fileName)"
+            let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+            let displayTitle = (trimmedTitle.isEmpty || trimmedTitle == fileName) ? nil : trimmedTitle
+            return URLDisplayParts(host: displayHost, title: displayTitle)
+        }
+
         var host = url.host ?? url.absoluteString
         if host.hasPrefix("www.") {
             host = String(host.dropFirst(4))

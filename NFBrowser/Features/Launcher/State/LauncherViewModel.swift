@@ -197,11 +197,11 @@ class LauncherViewModel: ObservableObject {
             return
         }
         let finalURL: URL? = if let candidateURL = URL(string: text), candidateURL.scheme != nil,
-                                candidateURL.host != nil
+                                candidateURL.host != nil || candidateURL.isFileURL
         {
             candidateURL
-        } else if isValidURL(text) {
-            constructURL(from: text)
+        } else if let constructed = constructURL(from: text) {
+            constructed
         } else {
             nil
         }

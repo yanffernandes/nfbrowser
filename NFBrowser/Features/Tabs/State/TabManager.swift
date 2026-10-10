@@ -360,7 +360,7 @@ class TabManager: ObservableObject {
 
         let host = url.host
         let faviconURL = host.flatMap { FaviconService.shared.faviconURL(for: $0) }
-        let cleanHost = host?.hasPrefix("www.") == true ? String(host!.dropFirst(4)) : (host ?? (url.scheme == "about" ? "Nova aba" : url.absoluteString))
+        let cleanHost = initialTabTitle(for: url)
 
         let newOrder: Int
         let parentTab = insertAfter ?? (focusAfterOpening ? nil : activeTab)
@@ -442,7 +442,7 @@ class TabManager: ObservableObject {
         let container = parentTab.container
         let targetURL = targetURL ?? URL(string: "about:blank")!
         let host = targetURL.host
-        let cleanHost = host?.hasPrefix("www.") == true ? String(host!.dropFirst(4)) : (host ?? (targetURL.scheme == "about" ? "Nova aba" : targetURL.absoluteString))
+        let cleanHost = initialTabTitle(for: targetURL)
         let faviconURL = host.flatMap { FaviconService.shared.faviconURL(for: $0) }
 
         // Shift down tabs below the parent tab so the new tab is placed directly below it
@@ -902,6 +902,16 @@ class TabManager: ObservableObject {
 }
 
 private extension TabManager {
+    func initialTabTitle(for url: URL) -> String {
+        if url.isFileURL {
+            return url.lastPathComponent.isEmpty ? "Local File" : url.lastPathComponent
+        }
+        if let host = url.host {
+            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        }
+        return url.scheme == "about" ? "Nova aba" : url.absoluteString
+    }
+
     func fetchContainer(id: UUID) -> TabContainer? {
         let descriptor = FetchDescriptor<TabContainer>(
             predicate: #Predicate { $0.id == id }

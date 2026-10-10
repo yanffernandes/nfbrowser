@@ -168,7 +168,7 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
             return
         }
 
-        webView.load(request)
+        executeLoad(request)
     }
 
     func reload() {
@@ -232,7 +232,7 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
     private func flushPendingNavigationIfNeeded() {
         if let pendingLoadRequest {
             self.pendingLoadRequest = nil
-            webView.load(pendingLoadRequest)
+            executeLoad(pendingLoadRequest)
             return
         }
 
@@ -240,6 +240,16 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptM
             pendingReload = false
             webView.reload()
         }
+    }
+
+    private func executeLoad(_ request: URLRequest) {
+        if let url = request.url, url.isFileURL {
+            // Scope read access to the file's own folder rather than the whole disk.
+            let readAccessURL = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
+            webView.loadFileURL(url, allowingReadAccessTo: readAccessURL)
+            return
+        }
+        webView.load(request)
     }
 
     private func emitNavigationEvent(
