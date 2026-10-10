@@ -28,7 +28,7 @@ targetTemplates:
         PRODUCT_BUNDLE_IDENTIFIER: "org.nflab.browser.helper${helperBundleSuffix}"
         INFOPLIST_FILE: ChromiumHelper/Info.plist
         GENERATE_INFOPLIST_FILE: NO
-        HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/CEF/dist"
+        SYSTEM_HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/CEF/dist"
         LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/CEF/dist/build/libcef_dll_wrapper"
         CLANG_CXX_LANGUAGE_STANDARD: c++20
         OTHER_CPLUSPLUSFLAGS: "$(inherited) -fno-rtti"
@@ -162,7 +162,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_OBJC_BRIDGING_HEADER: NFBrowser/Core/BrowserEngine/Chromium/Bridge/NFChromiumBridge.h
-        HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/CEF/dist"
+        SYSTEM_HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/CEF/dist"
         LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/CEF/dist/build/libcef_dll_wrapper"
         CLANG_CXX_LANGUAGE_STANDARD: c++20
         OTHER_CPLUSPLUSFLAGS: "$(inherited) -fno-rtti"
