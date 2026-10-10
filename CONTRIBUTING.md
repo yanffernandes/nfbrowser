@@ -46,6 +46,7 @@ xcodegen
 - Pre-commit hooks run `swiftformat` and `swiftlint` on staged Swift files.
 - Pre-push runs a debug build through `./scripts/xcbuild-debug.sh`.
 - Prefer existing patterns and project structure over introducing new abstractions without a clear need.
+- Chromium code lives in `NFBrowser/Core/BrowserEngine/Chromium` (Objective-C++ bridge in `Bridge/`) and `ChromiumHelper/`; run `./scripts/setup-cef.sh` once before building.
 - The current deployment target is macOS 15. Use availability checks if a change depends on newer APIs.
 - Use the project logger instead of `print`.
 
@@ -55,7 +56,7 @@ You can run the main checks manually:
 swiftformat . --quiet
 swiftlint lint --fix
 ./scripts/xcbuild-debug.sh
-xcodebuild test -scheme ora -destination "platform=macOS"
+TEST_RUNNER_CFFIXED_USER_HOME=$(mktemp -d) xcodebuild test -scheme NFBrowser -destination "platform=macOS" -only-testing:NFBrowserTests
 ```
 
 You can also run tests in Xcode with `Product > Test`.

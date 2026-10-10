@@ -1,6 +1,6 @@
 # Spec: QA & Developer Mode (Viewport Simulator, Mirrored Multi-Device & Cross-Engine Comparison)
 
-**Status:** Approved for implementation planning<br>
+**Status:** Implemented (2026-10-05); Cross-Engine Compare runs real Chromium since 2026-10-10. The multi-device grid still renders every device with WebKit.<br>
 **Date:** 2026-10-05<br>
 **Priority:** High-value product differentiator<br>
 **Related:** [Research Index](README.md), [Selectable Browser Engine per Space](2026-10-03-selectable-browser-engine.md), [Browser Copilot Terminal](2026-10-03-browser-copilot.md)

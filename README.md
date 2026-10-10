@@ -16,13 +16,13 @@
 
 ## Overview
 
-NFBrowser is a native macOS browser built with SwiftUI, AppKit, WebKit, and Chromium. It is an open-source experiment by NFLab — a laboratory for building, testing, learning, and sharing projects without commercial pressure.
+NFBrowser is a native macOS browser built with SwiftUI, AppKit, WebKit, and Chromium (through CEF, the Chromium Embedded Framework). It is an open-source experiment by NFLab — a laboratory for building, testing, learning, and sharing projects without commercial pressure.
 
 The codebase is derived from [Ora Browser](https://github.com/the-ora/browser). NFBrowser retains the original project's GPL-3.0 license and upstream copyright notices.
 
 ## Key Features
 
-- **Dual Engine Architecture**: Run spaces on ultra-fast, energy-efficient native **WebKit** or high-compatibility native **Chromium**.
+- **Dual Engine Architecture**: Each Space runs on **WebKit** (the default, energy-efficient Safari engine) or **Chromium** (Blink and V8 from Chromium 154 via CEF). Every Space keeps its own cookies and storage, and Cross-Engine Compare shows a page in both engines side by side.
 - **Peek Floating Preview**: Click links to open a floating preview window over the current page (Arc-style Peek). Review the content quickly, close with `Esc` / `✕`, or promote it to a permanent tab with one click.
 - **Arc Spaces & Migration**: Effortlessly import Arc spaces, tabs, and favorites. Organize workspaces with custom and special icons (Check, X, etc.) and individual engine settings.
 - **Fluid Tab Management**:
@@ -33,6 +33,19 @@ The codebase is derived from [Ora Browser](https://github.com/the-ora/browser). 
 - **Content Blocking & Privacy**: Built-in ad blocking, tracker protection, and per-space privacy sandboxing.
 - **Customizable Layout**: Resizable sidebar, flexible agent panel splitters, and distraction-free full-screen modes.
 
+## Chromium Engine
+
+Chromium Spaces embed the real Chromium engine, so sites see Chrome and DevTools speaks the Chrome DevTools Protocol. The prebuilt CEF that NFBrowser uses has limits:
+
+- No H.264, AAC or HEVC (licensing), so some video does not play; VP9, AV1 and Opus do.
+- No Widevine DRM (Netflix, Disney+, Spotify web).
+- No Chrome Web Store extensions in embedded tabs.
+- Google may refuse account sign-in in embedded browsers, and Chrome sync is not available.
+- Ad and tracker blocking currently applies to WebKit Spaces only.
+- The engine adds about 275 MB to the app.
+
+Use a WebKit Space for anything that needs those. To update the engine, change the pinned version and SHA-1 in `scripts/setup-cef.sh`.
+
 ## Build and Install
 
 ```bash
@@ -42,13 +55,14 @@ cd nfbrowser
 ./scripts/install.sh --launch
 ```
 
-The install script compiles the project, codesigns the bundle ad-hoc, and installs it directly to `/Applications/NFBrowser.app`.
+`setup.sh` installs the tools and prepares Chromium (`scripts/setup-cef.sh` downloads the pinned CEF build, checks its SHA-1 and builds the C++ wrapper; it needs `cmake` and `ninja`). The install script compiles the project, codesigns the bundle ad-hoc, and installs it directly to `/Applications/NFBrowser.app`.
 
 ## Development
 
 - **App Target**: `NFBrowser` (produces `NFBrowser.app`)
 - **Project Generation**: XcodeGen via `project.yml` (`xcodegen`)
-- **Testing**: `xcodebuild test -scheme NFBrowser -destination "platform=macOS"`
+- **Testing**: `TEST_RUNNER_CFFIXED_USER_HOME=$(mktemp -d) xcodebuild test -scheme NFBrowser -destination "platform=macOS" -only-testing:NFBrowserTests` (the isolated home keeps the test host away from your real session)
+- **Chromium smoke test** (Debug builds): `CFFIXED_USER_HOME=$(mktemp -d) NFBrowser.app/Contents/MacOS/NFBrowser --chromium-smoke-test /tmp/nf-smoke` exercises the engine end to end and writes `report.json`
 
 ## Open Source & Credits
 

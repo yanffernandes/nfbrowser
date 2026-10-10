@@ -1,9 +1,28 @@
 # Spec: selectable browser engine per Space
 
-**Status:** Draft for implementation planning<br>
+**Status:** Implemented through P2 on `feat/chromium-engine` (2026-10-10); see [Implementation status](#implementation-status)<br>
 **Date:** 2026-10-03<br>
 **Priority:** Second product track; feasibility spike first<br>
 **Related:** [Research index](README.md), [Browser copilot terminal](2026-10-03-browser-copilot.md)
+
+## Implementation status
+
+Verified on 2026-10-10 against CEF 154.0.34 (Chromium 154.0.8037.98), arm64.
+
+| Phase | State | Evidence |
+|---|---|---|
+| P0 spike | Done | Debug `--chromium-smoke-test` passes all 14 checks in about 6 s: two persistent profiles isolated, a second tab of a profile shares storage, an in-memory profile, back/forward, DevTools-protocol JavaScript, screenshot, binding, document-start script, download, `window.open` popup keeping `window.opener`, cookie import and per-site clearing. Init 76–90 ms; first load about 260 ms; framework 275 MB after locale trimming; four browsers about 1.2 GB resident. |
+| P1 engine-neutral layer | Done | `BrowserPage` protocol with `WebKitBrowserPage` behind it; engine-neutral popups, downloads and profiles; 53 unit tests. |
+| P2 CEF adapter | Done | `ChromiumBrowserPage` serves Chromium Spaces in the real UI (verified through the agent bridge: open, click, back, snapshot, screenshot; user agent `Chrome/154`). Native popups keep `window.opener`; cookies import and clear per Space; changing a Space's engine rebuilds its tabs; Cross-Engine Compare uses a real Chromium pane. |
+| P3 parity and release | In progress | Done: helper process sandbox, Chromium net errors on the status page, JS dialogs, downloads, Cmd shortcuts, inside-out Release signing in `embed-cef.sh`. Open: ad/tracker blocking for Chromium, notarized Release build (needs a Developer ID), multi-device grid on Chromium, background tabs load only once shown. |
+
+Decisions taken while implementing:
+
+- Embedded tabs are always Alloy style on macOS (CEF forces it for child views), so Chrome extensions are out of reach there.
+- SwiftUI ignores `NSPrincipalClass`; `App/main.swift` makes `NFChromiumApplication` the `NSApp` before `NFBrowserApp.main()`.
+- CEF starts lazily with the first Chromium page; dev builds use `Chromium-Dev` as root cache path because CEF allows one process per root.
+- Page scripts reach Swift through `window.__oraBridge` over a DevTools binding; pages never see `window.webkit`.
+- `window.open` popups that ask for a window open in native Chromium popup windows; other new-window requests open tabs.
 
 ## Summary
 

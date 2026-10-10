@@ -17,7 +17,7 @@ enum BrowserEngineKind: String, Codable, CaseIterable, Identifiable {
     var shortDescription: String {
         switch self {
         case .webkit: return "Native macOS Safari engine (fast & lightweight)"
-        case .chromium: return "Native Chromium engine (maximum compatibility)"
+        case .chromium: return "Real Chromium via CEF (no DRM or H.264 video)"
         }
     }
 

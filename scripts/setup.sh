@@ -35,9 +35,14 @@ ensure_formula swiftlint swiftlint
 ensure_formula swiftformat swiftformat
 ensure_formula xcbeautify xcbeautify
 ensure_formula lefthook lefthook
+ensure_formula cmake cmake
+ensure_formula ninja ninja
 
 lefthook install
 echo "Git hooks installed."
+
+./scripts/setup-cef.sh
+echo "Chromium (CEF) ready."
 
 xcodegen
 echo "Xcode project generated."

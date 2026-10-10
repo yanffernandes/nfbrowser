@@ -52,13 +52,27 @@ for suffix in "${HELPER_SUFFIXES[@]}"; do
     rsync -a --delete "$BUILT_PRODUCTS_DIR/$helper/" "$FRAMEWORKS_DIR/$helper/"
 done
 
-# When Xcode signs the app, nested code has to be signed first (inside-out).
+# When Xcode signs the app, nested code has to be signed first (inside-out). With the
+# hardened runtime (Release), the GPU and renderer helpers need the JIT entitlement,
+# as in Chromium's own signing.
 if [[ "${CODE_SIGNING_ALLOWED:-NO}" == "YES" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]]; then
+    SIGN=(codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY")
+    if [[ "${ENABLE_HARDENED_RUNTIME:-NO}" == "YES" ]]; then
+        SIGN+=(--options runtime --timestamp)
+    fi
     for library in "$FRAMEWORK_DST/Versions/A/Libraries/"*.dylib; do
-        codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" "$library"
+        "${SIGN[@]}" "$library"
     done
-    codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" "$FRAMEWORK_DST"
+    "${SIGN[@]}" "$FRAMEWORK_DST"
     for suffix in "${HELPER_SUFFIXES[@]}"; do
-        codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" "$FRAMEWORKS_DIR/NFBrowser Helper$suffix.app"
+        helper="$FRAMEWORKS_DIR/NFBrowser Helper$suffix.app"
+        case "$suffix" in
+            " (GPU)" | " (Renderer)")
+                "${SIGN[@]}" --entitlements "$SRCROOT/ChromiumHelper/jit.entitlements" "$helper"
+                ;;
+            *)
+                "${SIGN[@]}" "$helper"
+                ;;
+        esac
     done
 fi

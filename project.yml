@@ -18,6 +18,7 @@ targetTemplates:
       - path: ChromiumHelper
         excludes:
           - Info.plist
+          - jit.entitlements
     dependencies:
       - framework: Vendor/CEF/dist/build/libcef_dll_wrapper/libcef_dll_wrapper.a
         embed: false

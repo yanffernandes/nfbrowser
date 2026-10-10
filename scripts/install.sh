@@ -13,6 +13,8 @@ ENTITLEMENTS="$ROOT_DIR/NFBrowser/Info/NFBrowser-debug.entitlements"
 echo "==> Building latest NFBrowser..."
 cd "$ROOT_DIR"
 
+"$SCRIPT_DIR/setup-cef.sh"
+
 if command -v xcodegen >/dev/null 2>&1; then
     xcodegen
 fi
@@ -26,7 +28,11 @@ set -o pipefail && xcodebuild build \
   CODE_SIGNING_REQUIRED=NO | (command -v xcbeautify >/dev/null 2>&1 && xcbeautify || cat)
 
 echo "==> Locating built bundle..."
-BUILT_APP=$(find "$HOME/Library/Developer/Xcode/DerivedData" -maxdepth 6 -name "$APP_NAME" -type d 2>/dev/null | grep -E "Debug/$APP_NAME" | head -n 1 || true)
+# Ask Xcode for this checkout's products: other checkouts and worktrees keep their
+# own DerivedData folders with older builds.
+BUILT_PRODUCTS_DIR=$(xcodebuild -showBuildSettings -scheme NFBrowser -configuration Debug 2>/dev/null \
+  | awk -F ' = ' '/ BUILT_PRODUCTS_DIR = / {print $2; exit}')
+BUILT_APP="$BUILT_PRODUCTS_DIR/$APP_NAME"
 
 if [[ -z "$BUILT_APP" || ! -d "$BUILT_APP" ]]; then
     echo "Error: Built app not found!"

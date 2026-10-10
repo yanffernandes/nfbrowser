@@ -2,13 +2,13 @@
 
 **Research checked:** 2026-10-03<br>
 **Project:** NF Browser, derived from the Ora Browser codebase<br>
-**Status:** browser agent terminal integrated; provider runtime smoke checks remain
+**Status:** browser agent terminal integrated (provider runtime smoke checks remain); Chromium engine implemented through P2, P3 in progress
 
 ## Core product tracks
 
 1. [Browser copilot terminal](2026-10-03-browser-copilot.md): a native terminal pane that runs the user's local agent CLI and can perform bounded browser actions through the browser-control skill.
 2. [Selectable browser engine per Space](2026-10-03-selectable-browser-engine.md): keep WebKit as the default and add a Chromium-based backend that can be selected independently for each Space/profile.
-3. [QA & Developer Mode](2026-10-05-qa-developer-mode.md): responsive viewport simulator, one-click session/cookie import, mirrored multi-device grid, and world-first cross-engine (WebKit vs Chromium) side-by-side comparison.
+3. [QA & Developer Mode](2026-10-05-qa-developer-mode.md): responsive viewport simulator, one-click session/cookie import, mirrored multi-device grid, and cross-engine (WebKit vs real Chromium) side-by-side comparison.
 
 These tracks build upon each other. The terminal and browser-control bridge work with the current WebKit page. The QA mode leverages containerized Space cookies and introduces responsive simulation and cross-engine testing. The engine proposal adds a CEF backend that powers cross-engine live diffing.
 
