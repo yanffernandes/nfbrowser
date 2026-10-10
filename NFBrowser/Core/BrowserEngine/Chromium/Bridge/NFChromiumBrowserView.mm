@@ -432,6 +432,12 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
 #pragma mark Navigation
 
 - (void)loadURL:(NSURL *)url {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          [self loadURL:url];
+        });
+        return;
+    }
     if (!_browser) {
         _pendingURL = url;
         return;
@@ -499,6 +505,13 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
 - (void)sendDevToolsMethod:(NSString *)method
                     params:(NSDictionary<NSString *, id> *)params
                 completion:(NFDevToolsCompletion)completion {
+    // CEF only accepts DevTools calls on its UI thread, which is the main thread.
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          [self sendDevToolsMethod:method params:params completion:completion];
+        });
+        return;
+    }
     if (!_browser) {
         if (_closeRequested) {
             if (completion) {

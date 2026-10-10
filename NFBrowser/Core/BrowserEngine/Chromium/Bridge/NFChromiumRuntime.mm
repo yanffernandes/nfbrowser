@@ -132,6 +132,9 @@ class NFCefApp : public CefApp, public CefBrowserProcessHandler {
 
     void OnBeforeCommandLineProcessing(const CefString &process_type,
                                        CefRefPtr<CefCommandLine> command_line) override {
+        // Native notifications start Chromium's alerts helper, which asks for macOS
+        // notification permission at launch; the embedded engine has no notification UI.
+        command_line->AppendSwitchWithValue("disable-features", "NativeNotifications,SystemNotifications");
 #if defined(DEBUG) && DEBUG
         // Ad-hoc signed dev builds change identity on every build, so the real
         // Keychain would prompt for "Safe Storage" access each time.
@@ -251,6 +254,12 @@ std::string SanitizedProfileComponent(NSString *identifier) {
                            withIntermediateDirectories:YES
                                             attributes:nil
                                                  error:nil];
+    // CEF compares profile paths against the realpath of the root (/tmp is
+    // /private/tmp); NSURL's symlink resolution strips /private instead.
+    char resolvedRoot[PATH_MAX];
+    if (realpath(_rootCacheURL.fileSystemRepresentation, resolvedRoot) != nullptr) {
+        _rootCacheURL = [NSURL fileURLWithFileSystemRepresentation:resolvedRoot isDirectory:YES relativeToURL:nil];
+    }
 
     _libraryLoader = std::make_unique<CefScopedLibraryLoader>();
     if (!_libraryLoader->LoadInMain()) {

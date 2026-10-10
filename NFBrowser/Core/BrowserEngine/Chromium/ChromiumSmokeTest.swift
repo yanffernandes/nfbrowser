@@ -84,6 +84,8 @@
             return true
         }
 
+        @MainActor
+
         private func checkProfileIsolation(
             _ view: NFChromiumBrowserView,
             secondTab: NFChromiumBrowserView,
@@ -110,6 +112,8 @@
                 && !hasProbe(isolation["private"])
         }
 
+        @MainActor
+
         private func checkBackNavigation(_ view: NFChromiumBrowserView) async {
             guard let next = URL(string: "https://www.iana.org/help/example-domains") else { return }
             view.load(next)
@@ -124,6 +128,8 @@
             checks["back_navigation"] = wentBack && view.canGoForward
         }
 
+        @MainActor
+
         private func checkDevToolsBridge(_ view: NFChromiumBrowserView) async {
             _ = await devTools(view, "Runtime.addBinding", ["name": "nfSmokeBinding"])
             _ = await evaluate(view, "nfSmokeBinding('hello-from-page'); 'sent'")
@@ -131,6 +137,7 @@
                 self.bindingPayloads.contains("hello-from-page")
             }
 
+            _ = await devTools(view, "Page.enable", [:])
             _ = await devTools(view, "Page.addScriptToEvaluateOnNewDocument", ["source": "window.__nfInjected = 42;"])
             let loadsBeforeReload = finishedLoads[ObjectIdentifier(view)] ?? 0
             view.reload()
@@ -139,6 +146,8 @@
             report["injected_value"] = injected
             checks["document_start_script"] = (injected as? Int) == 42
         }
+
+        @MainActor
 
         private func checkDownload(_ view: NFChromiumBrowserView) async {
             _ = await evaluate(view, Self.downloadScript)
@@ -217,6 +226,8 @@
             self.window = window
         }
 
+        @MainActor
+
         private func waitUntil(timeout: TimeInterval = 30, _ condition: () -> Bool) async -> Bool {
             let deadline = Date().addingTimeInterval(timeout)
             while !condition() {
@@ -228,11 +239,15 @@
             return true
         }
 
+        @MainActor
+
         private func waitForLoads(_ views: [NFChromiumBrowserView], count: Int) async -> Bool {
             await waitUntil {
                 views.allSatisfy { (self.finishedLoads[ObjectIdentifier($0)] ?? 0) >= count }
             }
         }
+
+        @MainActor
 
         private func evaluate(_ view: NFChromiumBrowserView, _ script: String) async -> Any {
             await withCheckedContinuation { continuation in
@@ -246,6 +261,8 @@
             }
         }
 
+        @MainActor
+
         private func devTools(
             _ view: NFChromiumBrowserView,
             _ method: String,
@@ -257,6 +274,8 @@
                 }
             }
         }
+
+        @MainActor
 
         private func saveScreenshot(of view: NFChromiumBrowserView) async -> Bool {
             let image: NSImage? = await withCheckedContinuation { continuation in
