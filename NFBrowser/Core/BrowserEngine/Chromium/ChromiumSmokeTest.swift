@@ -64,6 +64,7 @@
             await checkBackNavigation(viewA)
             await checkDevToolsBridge(viewA)
             checks["screenshot"] = await saveScreenshot(of: viewA)
+            await checkPopupKeepsOpener(viewA)
             await checkDownload(viewA)
             if let stack = window?.contentView as? NSStackView {
                 let pageCheck = await ChromiumPageSmokeCheck().run(hostedIn: stack)
@@ -90,7 +91,6 @@
         }
 
         @MainActor
-
         private func checkProfileIsolation(
             _ view: NFChromiumBrowserView,
             secondTab: NFChromiumBrowserView,
@@ -118,7 +118,6 @@
         }
 
         @MainActor
-
         private func checkBackNavigation(_ view: NFChromiumBrowserView) async {
             guard let next = URL(string: "https://www.iana.org/help/example-domains") else { return }
             view.load(next)
@@ -134,7 +133,6 @@
         }
 
         @MainActor
-
         private func checkDevToolsBridge(_ view: NFChromiumBrowserView) async {
             _ = await devTools(view, "Runtime.addBinding", ["name": "nfSmokeBinding"])
             _ = await evaluate(view, "nfSmokeBinding('hello-from-page'); 'sent'")
@@ -153,7 +151,6 @@
         }
 
         @MainActor
-
         private func checkDownload(_ view: NFChromiumBrowserView) async {
             _ = await evaluate(view, Self.downloadScript)
             let downloaded = await waitUntil(timeout: 20) { self.completedDownload != nil }
@@ -207,7 +204,6 @@
         }
 
         @MainActor
-
         private func waitUntil(timeout: TimeInterval = 30, _ condition: () -> Bool) async -> Bool {
             let deadline = Date().addingTimeInterval(timeout)
             while !condition() {
@@ -220,7 +216,6 @@
         }
 
         @MainActor
-
         private func waitForLoads(_ views: [NFChromiumBrowserView], count: Int) async -> Bool {
             await waitUntil {
                 views.allSatisfy { (self.finishedLoads[ObjectIdentifier($0)] ?? 0) >= count }
@@ -228,7 +223,6 @@
         }
 
         @MainActor
-
         private func evaluate(_ view: NFChromiumBrowserView, _ script: String) async -> Any {
             await withCheckedContinuation { continuation in
                 view.evaluateJavaScript(script) { result, error in
@@ -242,7 +236,6 @@
         }
 
         @MainActor
-
         private func devTools(
             _ view: NFChromiumBrowserView,
             _ method: String,
@@ -256,7 +249,6 @@
         }
 
         @MainActor
-
         private func saveScreenshot(of view: NFChromiumBrowserView) async -> Bool {
             let image: NSImage? = await withCheckedContinuation { continuation in
                 view.captureScreenshot { image, _ in continuation.resume(returning: image) }
@@ -329,6 +321,45 @@
     }
 
     private extension ChromiumSmokeTest {
+        /// window.open() with window features must open a real popup that keeps
+        /// window.opener, which OAuth sign-in flows depend on.
+        @MainActor
+        func checkPopupKeepsOpener(_ view: NFChromiumBrowserView) async {
+            let browsersBefore = NFChromiumRuntime.shared.liveBrowserCount
+            _ = await evaluate(
+                view,
+                "window.__nfPopup = window.open(location.href, 'nfpopup', 'width=420,height=320'); 'ok'"
+            )
+            let opened = await waitUntil(timeout: 10) { NFChromiumRuntime.shared.liveBrowserCount > browsersBefore }
+            let probe = """
+            (() => {
+              const popup = window.__nfPopup;
+              return !!popup && !popup.closed && popup.document.readyState === 'complete' && popup.opener === window;
+            })()
+            """
+            var linked = false
+            for _ in 0 ..< 30 where !linked {
+                linked = await evaluate(view, probe) as? Bool == true
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+            _ = await evaluate(view, "window.__nfPopup && window.__nfPopup.close(); 'closed'")
+            var closedForPage = false
+            for _ in 0 ..< 20 where !closedForPage {
+                closedForPage = await evaluate(view, "!window.__nfPopup || window.__nfPopup.closed") as? Bool == true
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+            let released = await waitUntil(timeout: 10) { NFChromiumRuntime.shared.liveBrowserCount == browsersBefore }
+            report["popup"] = [
+                "opened": opened,
+                "linked_to_opener": linked,
+                "closed_for_page": closedForPage,
+                "browser_released": released,
+                "live_browsers": NFChromiumRuntime.shared.liveBrowserCount,
+                "popup_windows": NSApp.windows.filter(\.isVisible).map(\.title)
+            ]
+            checks["popup_keeps_opener"] = opened && linked && closedForPage
+        }
+
         static let pageFactsScript = """
         ({
           userAgent: navigator.userAgent,

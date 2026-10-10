@@ -125,6 +125,38 @@ static NSDictionary *NFDictionary(id _Nullable object) {
 
 namespace {
 
+// window.open() popups that ask for a window (OAuth and payment sign-in flows) need
+// window.opener, so Chromium hosts them in its own native window. They get this
+// separate client so their events never reach the opener tab's view.
+class NFChromiumPopupClient : public CefClient, public CefLifeSpanHandler, public CefDisplayHandler {
+   public:
+    CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
+    CefRefPtr<CefDisplayHandler> GetDisplayHandler() override { return this; }
+
+    void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
+        [NFChromiumRuntime.shared browserDidCreate:browser];
+    }
+
+    // OnBeforeClose does not reliably arrive for native popup windows, so the
+    // runtime lets go of the browser as soon as closing starts.
+    bool DoClose(CefRefPtr<CefBrowser> browser) override {
+        [NFChromiumRuntime.shared browserDidClose:browser];
+        return false;
+    }
+
+    void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
+        [NFChromiumRuntime.shared browserDidClose:browser];
+    }
+
+    void OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString &title) override {
+        NSView *view = (__bridge NSView *)browser->GetHost()->GetWindowHandle();
+        view.window.title = NSStringFromCefString(title);
+    }
+
+   private:
+    IMPLEMENT_REFCOUNTING(NFChromiumPopupClient);
+};
+
 // All callbacks arrive on the CEF UI thread, which is the main thread on macOS.
 class NFChromiumClient : public CefClient,
                          public CefLifeSpanHandler,
@@ -165,6 +197,10 @@ class NFChromiumClient : public CefClient,
                        CefBrowserSettings &settings,
                        CefRefPtr<CefDictionaryValue> &extra_info,
                        bool *no_javascript_access) override {
+        if (target_disposition == CEF_WOD_NEW_POPUP && user_gesture) {
+            client = new NFChromiumPopupClient();
+            return false;
+        }
         NSURL *url = NSURLFromCefString(target_url);
         if (url) {
             BOOL background = target_disposition == CEF_WOD_NEW_BACKGROUND_TAB;
