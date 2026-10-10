@@ -367,7 +367,8 @@ std::string SanitizedProfileComponent(NSString *identifier) {
 
     CefMainArgs mainArgs(*_NSGetArgc(), *_NSGetArgv());
     CefSettings settings;
-    settings.no_sandbox = true;
+    // Helpers enter Chromium's process sandbox (see ChromiumHelper/main.mm).
+    settings.no_sandbox = false;
     settings.external_message_pump = true;
     settings.command_line_args_disabled = true;
     settings.persist_session_cookies = true;
