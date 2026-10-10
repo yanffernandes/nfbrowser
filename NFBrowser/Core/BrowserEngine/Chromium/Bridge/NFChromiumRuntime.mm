@@ -22,7 +22,8 @@ static NSString *const NFChromiumErrorDomain = @"NFChromiumRuntime";
 - (void)nf_contextDidInitialize;
 @end
 
-static NSString *const NFPendingProfileRemovalsKeyPrefix = @"NFChromiumPendingProfileRemovals-";
+// Where earlier builds kept profiles waiting for removal, per root.
+static NSString *const NFLegacyPendingRemovalsKeyPrefix = @"NFChromiumPendingProfileRemovals-";
 
 // External message pump, ported from cefclient's MainMessageLoopExternalPump(Mac)
 // (tests/shared/browser in the CEF repository, BSD license,
@@ -623,21 +624,35 @@ std::string SanitizedProfileComponent(NSString *identifier) {
         return;
     }
     // Chromium keeps the profile's files open until it exits.
-    NSString *key = [NFPendingProfileRemovalsKeyPrefix stringByAppendingString:_rootCacheURL.lastPathComponent];
-    NSMutableArray<NSString *> *pending =
-        [[NSUserDefaults.standardUserDefaults stringArrayForKey:key] mutableCopy] ?: [NSMutableArray array];
+    NSMutableArray *pending =
+        [[NSArray arrayWithContentsOfURL:self.pendingRemovalsURL error:nil] mutableCopy] ?: [NSMutableArray array];
     if (![pending containsObject:name]) {
         [pending addObject:name];
     }
-    [NSUserDefaults.standardUserDefaults setObject:pending forKey:key];
+    [pending writeToURL:self.pendingRemovalsURL error:nil];
+}
+
+// Profiles removed while Chromium ran, deleted at its next start. The list lives in the
+// root it refers to, so it goes wherever the profiles go.
+- (NSURL *)pendingRemovalsURL {
+    return [_rootCacheURL URLByAppendingPathComponent:@"NFBrowser Pending Removals.plist" isDirectory:NO];
 }
 
 - (void)applyPendingProfileRemovals {
-    NSString *key = [NFPendingProfileRemovalsKeyPrefix stringByAppendingString:_rootCacheURL.lastPathComponent];
-    for (NSString *name in [NSUserDefaults.standardUserDefaults stringArrayForKey:key]) {
-        [self deleteProfileDirectory:name];
+    NSMutableSet *names = [NSMutableSet setWithArray:[NSArray arrayWithContentsOfURL:self.pendingRemovalsURL
+                                                                               error:nil] ?: @[]];
+    NSString *legacyKey = [NFLegacyPendingRemovalsKeyPrefix stringByAppendingString:_rootCacheURL.lastPathComponent];
+    NSArray *legacyNames = [NSUserDefaults.standardUserDefaults stringArrayForKey:legacyKey];
+    if (legacyNames) {
+        [names addObjectsFromArray:legacyNames];
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:legacyKey];
     }
-    [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+    for (id name in names) {
+        if ([name isKindOfClass:NSString.class]) {
+            [self deleteProfileDirectory:name];
+        }
+    }
+    [NSFileManager.defaultManager removeItemAtURL:self.pendingRemovalsURL error:nil];
 }
 
 - (void)deleteProfileDirectory:(NSString *)name {
