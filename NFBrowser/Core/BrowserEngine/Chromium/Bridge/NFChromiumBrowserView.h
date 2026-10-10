@@ -105,6 +105,9 @@ typedef NS_ENUM(NSInteger, NFChromiumJavaScriptDialogType) {
 @property (nonatomic) double zoomLevel;
 /// Hosts whose certificate errors the user chose to accept.
 @property (nonatomic, copy) NSSet<NSString *> *allowedInsecureHosts;
+/// Hosts blocked when a page loads them as a third party (tracker protection);
+/// subdomains of a listed host are blocked too.
+@property (nonatomic, copy) NSSet<NSString *> *blockedThirdPartyHosts;
 /// DevTools events forwarded to the delegate; nil forwards all of them.
 @property (nonatomic, copy, nullable) NSSet<NSString *> *observedDevToolsEvents;
 

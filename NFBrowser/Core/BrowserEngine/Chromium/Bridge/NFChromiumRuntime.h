@@ -2,6 +2,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NS_ENUM(NSInteger, NFChromiumCookiePolicy) {
+    NFChromiumCookiePolicyAllowAll,
+    NFChromiumCookiePolicyBlockThirdParty,
+    NFChromiumCookiePolicyBlockAll,
+};
+
 /// Owns the CEF browser-process lifecycle: lazy CefInitialize on first use, the
 /// external message pump on the main run loop, per-profile request contexts and
 /// an orderly CefShutdown. Main thread only.
@@ -37,6 +43,11 @@ NS_ASSUME_NONNULL_BEGIN
                      persistent:(BOOL)persistent
                            host:(nullable NSString *)host
                      completion:(void (^)(void))completion;
+
+/// Applies a Space's cookie policy to its profile through Chromium's own settings.
+- (void)setCookiePolicy:(NFChromiumCookiePolicy)policy
+             forProfile:(NSString *)profileIdentifier
+             persistent:(BOOL)persistent;
 
 /// Clears a profile's HTTP cache.
 - (void)clearCacheForProfile:(NSString *)profileIdentifier

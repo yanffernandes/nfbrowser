@@ -29,6 +29,7 @@ final class ChromiumBrowserPage: NSObject, BrowserPage {
         super.init()
         browserView.delegate = self
         browserView.observedDevToolsEvents = ["Runtime.bindingCalled"]
+        applyPrivacySettings(configuration.privacySettings, profile: profile)
         installPageBridge(userScripts: configuration.userScripts)
     }
 
@@ -119,6 +120,24 @@ final class ChromiumBrowserPage: NSObject, BrowserPage {
 
     func bypassSSL(for host: String) {
         browserView.allowedInsecureHosts = browserView.allowedInsecureHosts.union([host])
+    }
+
+    /// Tracker protection runs per page; the cookie policy belongs to the Space's profile.
+    /// Fingerprinting protection arrives with the user scripts.
+    private func applyPrivacySettings(_ settings: SpacePrivacySettings, profile: BrowserEngineProfile) {
+        browserView.blockedThirdPartyHosts = settings.blockThirdPartyTrackers
+            ? Set(BrowserPrivacyService.trackerDomains)
+            : []
+        let policy: NFChromiumCookiePolicy = switch settings.cookiesPolicy {
+        case .allowAll: .allowAll
+        case .blockThirdParty: .blockThirdParty
+        case .blockAll: .blockAll
+        }
+        NFChromiumRuntime.shared.setCookiePolicy(
+            policy,
+            forProfile: profile.identifier.uuidString,
+            persistent: !profile.isPrivate
+        )
     }
 
     /// Registers the message binding and the user scripts before the first navigation,

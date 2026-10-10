@@ -620,7 +620,8 @@ final class BrowserPrivacyService {
         return encoded
     }
 
-    private static let trackerDomains = [
+    /// Hosts blocked as third parties when a Space turns on tracker protection.
+    static let trackerDomains = [
         "google-analytics.com",
         "googletagmanager.com",
         "doubleclick.net",

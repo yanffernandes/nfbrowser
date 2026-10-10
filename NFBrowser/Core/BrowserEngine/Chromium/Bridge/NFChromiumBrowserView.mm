@@ -1,6 +1,9 @@
 #import "NFChromiumBrowserView.h"
 
+#include <algorithm>
+#include <mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "include/cef_browser.h"
@@ -125,6 +128,85 @@ static NSDictionary *NFDictionary(id _Nullable object) {
 
 namespace {
 
+// Host-level tracker blocking, consulted on the IO thread for every request.
+class NFTrackerBlocklist {
+   public:
+    void SetBlockedHosts(std::unordered_set<std::string> hosts) {
+        std::lock_guard<std::mutex> guard(lock_);
+        blocked_hosts_ = std::move(hosts);
+    }
+
+    void SetTopHost(std::string host) {
+        std::lock_guard<std::mutex> guard(lock_);
+        top_host_ = std::move(host);
+    }
+
+    bool IsEnabled() {
+        std::lock_guard<std::mutex> guard(lock_);
+        return !blocked_hosts_.empty();
+    }
+
+    // Blocks a listed host or any subdomain of one, only when it is a third party
+    // to the page. Google and YouTube pages are exempt, as in the WebKit rules.
+    bool ShouldBlock(const std::string &host) {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (host.empty() || blocked_hosts_.empty() || RegistrableDomain(host) == RegistrableDomain(top_host_) ||
+            IsWithin(top_host_, "google.com") || IsWithin(top_host_, "youtube.com")) {
+            return false;
+        }
+        std::string candidate = host;
+        while (true) {
+            if (blocked_hosts_.count(candidate) > 0) {
+                return true;
+            }
+            size_t dot = candidate.find('.');
+            if (dot == std::string::npos) {
+                return false;
+            }
+            candidate.erase(0, dot + 1);
+        }
+    }
+
+   private:
+    static bool IsWithin(const std::string &host, const std::string &domain) {
+        if (host == domain) {
+            return true;
+        }
+        return host.size() > domain.size() &&
+               host.compare(host.size() - domain.size() - 1, domain.size() + 1, "." + domain) == 0;
+    }
+
+    // Approximates the registrable domain: the last two labels, or three under
+    // common two-part suffixes such as co.uk and com.br.
+    static std::string RegistrableDomain(const std::string &host) {
+        std::vector<std::string> labels;
+        size_t start = 0;
+        while (true) {
+            size_t dot = host.find('.', start);
+            labels.push_back(host.substr(start, dot == std::string::npos ? std::string::npos : dot - start));
+            if (dot == std::string::npos) {
+                break;
+            }
+            start = dot + 1;
+        }
+        if (labels.size() <= 2) {
+            return host;
+        }
+        const std::string &secondLevel = labels[labels.size() - 2];
+        static const std::unordered_set<std::string> kSecondLevel = {"co", "com", "net", "org", "gov", "edu", "ac"};
+        size_t keep = labels.back().size() == 2 && kSecondLevel.count(secondLevel) > 0 ? 3 : 2;
+        std::string result;
+        for (size_t i = labels.size() - keep; i < labels.size(); ++i) {
+            result += (result.empty() ? "" : ".") + labels[i];
+        }
+        return result;
+    }
+
+    std::mutex lock_;
+    std::unordered_set<std::string> blocked_hosts_;
+    std::string top_host_;
+};
+
 // window.open() popups that ask for a window (OAuth and payment sign-in flows) need
 // window.opener, so Chromium hosts them in its own native window. They get this
 // separate client so their events never reach the opener tab's view.
@@ -167,11 +249,14 @@ class NFChromiumClient : public CefClient,
                          public CefRequestHandler,
                          public CefJSDialogHandler,
                          public CefKeyboardHandler,
+                         public CefResourceRequestHandler,
                          public CefDevToolsMessageObserver {
    public:
     explicit NFChromiumClient(NFChromiumBrowserView *view) : view_(view) {}
 
     void Detach() { view_ = nil; }
+
+    NFTrackerBlocklist &Blocklist() { return blocklist_; }
 
     CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
     CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
@@ -228,7 +313,9 @@ class NFChromiumClient : public CefClient,
 
     void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, const CefString &url) override {
         if (frame->IsMain()) {
-            [view_ nf_addressChanged:NSURLFromCefString(url)];
+            NSURL *address = NSURLFromCefString(url);
+            blocklist_.SetTopHost(address.host.lowercaseString.UTF8String ?: "");
+            [view_ nf_addressChanged:address];
         }
     }
 
@@ -345,6 +432,36 @@ class NFChromiumClient : public CefClient,
         return false;
     }
 
+    // Called on the IO thread. Main-frame navigations are what the user asked for, so
+    // only subresources and subframes go through the tracker blocklist.
+    CefRefPtr<CefResourceRequestHandler> GetResourceRequestHandler(CefRefPtr<CefBrowser> browser,
+                                                                   CefRefPtr<CefFrame> frame,
+                                                                   CefRefPtr<CefRequest> request,
+                                                                   bool is_navigation,
+                                                                   bool is_download,
+                                                                   const CefString &request_initiator,
+                                                                   bool &disable_default_handling) override {
+        if (!blocklist_.IsEnabled() || (is_navigation && frame && frame->IsMain())) {
+            return nullptr;
+        }
+        return this;
+    }
+
+    // CefResourceRequestHandler (IO thread)
+
+    cef_return_value_t OnBeforeResourceLoad(CefRefPtr<CefBrowser> browser,
+                                            CefRefPtr<CefFrame> frame,
+                                            CefRefPtr<CefRequest> request,
+                                            CefRefPtr<CefCallback> callback) override {
+        CefURLParts parts;
+        if (!CefParseURL(request->GetURL(), parts)) {
+            return RV_CONTINUE;
+        }
+        std::string host = CefString(&parts.host).ToString();
+        std::transform(host.begin(), host.end(), host.begin(), ::tolower);
+        return blocklist_.ShouldBlock(host) ? RV_CANCEL : RV_CONTINUE;
+    }
+
     // CefJSDialogHandler
 
     bool OnJSDialog(CefRefPtr<CefBrowser> browser,
@@ -397,6 +514,7 @@ class NFChromiumClient : public CefClient,
 
    private:
     __weak NFChromiumBrowserView *view_;
+    NFTrackerBlocklist blocklist_;
     IMPLEMENT_REFCOUNTING(NFChromiumClient);
 };
 
@@ -431,6 +549,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
         _devToolsCompletions = [NSMutableDictionary dictionary];
         _downloads = [NSMutableDictionary dictionary];
         _allowedInsecureHosts = [NSSet set];
+        _blockedThirdPartyHosts = [NSSet set];
     }
     return self;
 }
@@ -442,6 +561,22 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     if (_browser) {
         _browser->GetHost()->CloseBrowser(true);
     }
+}
+
+- (void)setBlockedThirdPartyHosts:(NSSet<NSString *> *)hosts {
+    _blockedThirdPartyHosts = [hosts copy];
+    [self applyBlockedHostsToClient];
+}
+
+- (void)applyBlockedHostsToClient {
+    if (!_client) {
+        return;
+    }
+    std::unordered_set<std::string> hosts;
+    for (NSString *host in _blockedThirdPartyHosts) {
+        hosts.insert(host.lowercaseString.UTF8String);
+    }
+    _client->Blocklist().SetBlockedHosts(std::move(hosts));
 }
 
 - (BOOL)hasBrowser {
@@ -518,6 +653,7 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
     std::string url = _pendingURL.absoluteString.UTF8String ?: "";
     _pendingURL = nil;
     _client = new NFChromiumClient(self);
+    [self applyBlockedHostsToClient];
     if (!CefBrowserHost::CreateBrowser(windowInfo, _client, url, browserSettings, nullptr, context)) {
         _isCreatingBrowser = NO;
         [self nf_loadFailed:nil errorCode:-1 errorText:@"Chromium could not create the browser."];

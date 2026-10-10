@@ -521,6 +521,31 @@ std::string SanitizedProfileComponent(NSString *identifier) {
                                 }];
 }
 
+- (void)setCookiePolicy:(NFChromiumCookiePolicy)policy forProfile:(NSString *)identifier persistent:(BOOL)persistent {
+    if (![self startIfNeededWithError:nil]) {
+        return;
+    }
+    __weak NFChromiumRuntime *weakSelf = self;
+    [self performWhenContextReady:^{
+      NFChromiumRuntime *runtime = weakSelf;
+      if (!runtime.isRunning) {
+          return;
+      }
+      CefRefPtr<CefRequestContext> context = [runtime requestContextForProfile:identifier persistent:persistent];
+      // cookie_controls_mode 1 blocks third-party cookies; 0 allows them.
+      CefRefPtr<CefValue> mode = CefValue::Create();
+      mode->SetInt(policy == NFChromiumCookiePolicyAllowAll ? 0 : 1);
+      CefString error;
+      if (!context->SetPreference("profile.cookie_controls_mode", mode, error)) {
+          NSLog(@"[NFChromium] cookie policy: %s", error.ToString().c_str());
+      }
+      // Empty URLs set the profile-wide default.
+      context->SetContentSetting("", "", CEF_CONTENT_SETTING_TYPE_COOKIES,
+                                 policy == NFChromiumCookiePolicyBlockAll ? CEF_CONTENT_SETTING_VALUE_BLOCK
+                                                                          : CEF_CONTENT_SETTING_VALUE_DEFAULT);
+    }];
+}
+
 - (void)clearCacheForProfile:(NSString *)identifier persistent:(BOOL)persistent completion:(void (^)(void))completion {
     if (![self startIfNeededWithError:nil]) {
         completion();

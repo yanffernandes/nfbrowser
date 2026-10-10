@@ -44,9 +44,19 @@
             let alerted = await waitUntil(timeout: 10) { self.alerts.contains("hello-from-page") }
 
             let background = await checkBackgroundLoad(hostedIn: stack, engine: engine)
+            let trackerFetch = "fetch('https://www.google-analytics.com/analytics.js', {mode: 'no-cors'})"
+                + ".then(() => 'loaded', () => 'blocked')"
+            let withProtection = await fetchResult(trackerFetch, blockTrackers: true, hostedIn: stack, engine: engine)
+            let withoutProtection = await fetchResult(
+                trackerFetch,
+                blockTrackers: false,
+                hostedIn: stack,
+                engine: engine
+            )
 
             let report: [String: Any] = [
                 "background_tab": background,
+                "tracker_fetch": ["protected": withProtection, "unprotected": withoutProtection],
                 "phases": phases.map { "\($0)" },
                 "messages": messages.map(\.name),
                 "globals": globals,
@@ -59,7 +69,8 @@
                     && globals["bindings"] as? Int == 0 && globals["bridge"] as? String == "object",
                 "page_js_dialog": alerted,
                 "page_loads_in_background": background["loaded_before_shown"] as? Bool == true,
-                "page_moves_into_window": background["works_after_shown"] as? Bool == true
+                "page_moves_into_window": background["works_after_shown"] as? Bool == true,
+                "tracker_protection": withProtection == "blocked" && withoutProtection == "loaded"
             ]
             return (report, checks)
         }
@@ -87,6 +98,36 @@
                 "loaded_before_shown": loaded && wasParked,
                 "works_after_shown": page.contentView.window === stack.window && title == "Example Domain"
             ]
+        }
+
+        /// Runs a fetch on example.com in a page whose Space has tracker protection on or off.
+        @MainActor
+        private func fetchResult(
+            _ script: String,
+            blockTrackers: Bool,
+            hostedIn stack: NSStackView,
+            engine: BrowserEngine
+        ) async -> String {
+            let watcher = ChromiumPageSmokeCheck()
+            let page = engine.makePage(
+                engineKind: .chromium,
+                profile: engine.makeProfile(engineKind: .chromium, identifier: UUID(), isPrivate: true),
+                configuration: .oraDefault(
+                    engineKind: .chromium,
+                    userScripts: [],
+                    privacySettings: SpacePrivacySettings(blockThirdPartyTrackers: blockTrackers)
+                ),
+                delegate: watcher
+            )
+            defer { page.teardown() }
+            guard let url = URL(string: "https://example.com/?trackers") else { return "" }
+            stack.addArrangedSubview(page.contentView)
+            page.load(URLRequest(url: url))
+            _ = await waitUntil { watcher.phases.contains(.finished) }
+            var result: Any?
+            page.evaluateJavaScript(script) { value, _ in result = value ?? "" }
+            _ = await waitUntil(timeout: 15) { result != nil }
+            return result as? String ?? ""
         }
 
         @MainActor
