@@ -2,6 +2,40 @@ name: NFBrowser
 options:
   bundleIdPrefix: org.nflab
 
+settings:
+  base:
+    MARKETING_VERSION: 0.2.14
+    CURRENT_PROJECT_VERSION: 105
+
+# Chromium (CEF) helper apps. CEF on macOS needs five of them in
+# NFBrowser.app/Contents/Frameworks, named after the main executable.
+targetTemplates:
+  ChromiumHelper:
+    type: application
+    platform: "macOS"
+    deploymentTarget: "15.0"
+    sources:
+      - path: ChromiumHelper
+        excludes:
+          - Info.plist
+    dependencies:
+      - framework: Vendor/CEF/dist/build/libcef_dll_wrapper/libcef_dll_wrapper.a
+        embed: false
+    settings:
+      base:
+        PRODUCT_NAME: "NFBrowser Helper${helperSuffix}"
+        PRODUCT_BUNDLE_IDENTIFIER: "org.nflab.browser.helper${helperBundleSuffix}"
+        INFOPLIST_FILE: ChromiumHelper/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/CEF/dist"
+        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/CEF/dist/build/libcef_dll_wrapper"
+        CLANG_CXX_LANGUAGE_STANDARD: c++20
+        OTHER_CPLUSPLUSFLAGS: "$(inherited) -fno-rtti"
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: NO
+
 packages:
   Inject:
     url: https://github.com/krzysztofzablocki/Inject
@@ -36,6 +70,29 @@ targets:
       - package: SafariConverterLib
         product: ContentBlockerConverter
       - package: SwiftTerm
+      - framework: Vendor/CEF/dist/build/libcef_dll_wrapper/libcef_dll_wrapper.a
+        embed: false
+      - target: NFBrowserHelper
+        embed: false
+        link: false
+      - target: NFBrowserHelperAlerts
+        embed: false
+        link: false
+      - target: NFBrowserHelperGPU
+        embed: false
+        link: false
+      - target: NFBrowserHelperPlugin
+        embed: false
+        link: false
+      - target: NFBrowserHelperRenderer
+        embed: false
+        link: false
+
+    postBuildScripts:
+      - name: "Embed Chromium"
+        script: |
+          "$SRCROOT/scripts/embed-cef.sh"
+        basedOnDependencyAnalysis: false
 
     preBuildScripts:
       - name: "Copy Icon Bundle"
@@ -98,13 +155,17 @@ targets:
       base:
         SWIFT_VERSION: 5.9
         CODE_SIGN_STYLE: Automatic
-        MARKETING_VERSION: 0.2.14
-        CURRENT_PROJECT_VERSION: 105
         PRODUCT_NAME: NFBrowser
         PRODUCT_MODULE_NAME: NFBrowser
         PRODUCT_BUNDLE_IDENTIFIER: org.nflab.browser
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_OBJC_BRIDGING_HEADER: NFBrowser/Core/BrowserEngine/Chromium/Bridge/NFChromiumBridge.h
+        HEADER_SEARCH_PATHS: "$(SRCROOT)/Vendor/CEF/dist"
+        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/CEF/dist/build/libcef_dll_wrapper"
+        CLANG_CXX_LANGUAGE_STANDARD: c++20
+        OTHER_CPLUSPLUSFLAGS: "$(inherited) -fno-rtti"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
       configs:
         Debug:
           ASSETCATALOG_COMPILER_APPICON_NAME: OraIconDev
@@ -146,6 +207,41 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+
+  NFBrowserHelper:
+    templates:
+      - ChromiumHelper
+    templateAttributes:
+      helperSuffix: ""
+      helperBundleSuffix: ""
+
+  NFBrowserHelperAlerts:
+    templates:
+      - ChromiumHelper
+    templateAttributes:
+      helperSuffix: " (Alerts)"
+      helperBundleSuffix: ".alerts"
+
+  NFBrowserHelperGPU:
+    templates:
+      - ChromiumHelper
+    templateAttributes:
+      helperSuffix: " (GPU)"
+      helperBundleSuffix: ".gpu"
+
+  NFBrowserHelperPlugin:
+    templates:
+      - ChromiumHelper
+    templateAttributes:
+      helperSuffix: " (Plugin)"
+      helperBundleSuffix: ".plugin"
+
+  NFBrowserHelperRenderer:
+    templates:
+      - ChromiumHelper
+    templateAttributes:
+      helperSuffix: " (Renderer)"
+      helperBundleSuffix: ".renderer"
 
 schemes:
   NFBrowser:

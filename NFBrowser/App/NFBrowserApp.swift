@@ -11,7 +11,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
             Bundle(path: "/Applications/InjectionIII.app/Contents/Resources/macOSInjection.bundle")?.load()
             Bundle(path: "/Applications/InjectionIII.app/Contents/Resources/macOSSwiftUISupport.bundle")?.load()
+            ChromiumSmokeTest.runIfRequested()
         #endif
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        NFChromiumRuntime.shared.shutdown()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -65,7 +70,6 @@ class AppState: ObservableObject {
     @Published var isURLBarEditing: Bool = false
 }
 
-@main
 struct NFBrowserApp: App {
     typealias OraApp = NFBrowserApp
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
