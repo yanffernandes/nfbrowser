@@ -143,6 +143,19 @@ typealias OraCommands = NFBrowserCommands
             .keyboardShortcut(KeyboardShortcuts.Navigation.forward.keyboardShortcut)
         }
 
+        CommandMenu("History") {
+            Button("Show Full History") {
+                NotificationCenter.default.post(name: .toggleHistory, object: NSApp.keyWindow)
+            }
+            .keyboardShortcut(KeyboardShortcuts.History.show.keyboardShortcut)
+
+            Divider()
+
+            Button("Clear Browsing History...") {
+                NotificationCenter.default.post(name: .toggleHistory, object: NSApp.keyWindow)
+            }
+        }
+
         CommandMenu("Agent") {
             Button("Toggle Agent Terminal") {
                 NotificationCenter.default.post(

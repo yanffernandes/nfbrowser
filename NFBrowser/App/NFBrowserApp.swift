@@ -68,6 +68,7 @@ class AppState: ObservableObject {
     @Published var isFloatingTabSwitchVisible: Bool = false
     @Published var isFullscreen: Bool = false
     @Published var isURLBarEditing: Bool = false
+    @Published var showHistory: Bool = false
 }
 
 struct NFBrowserApp: App {

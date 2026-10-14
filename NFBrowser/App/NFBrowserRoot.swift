@@ -144,6 +144,10 @@ typealias OraRoot = NFBrowserRoot
                 keyModifierListener.registerKeyDownHandler { event in
                     // Escape: dismiss peek or top dialog
                     if event.keyCode == 53 {
+                        if appState.showHistory {
+                            DispatchQueue.main.async { appState.showHistory = false }
+                            return true
+                        }
                         if tabManager.peekTab != nil {
                             DispatchQueue.main.async { tabManager.closePeek() }
                             return true

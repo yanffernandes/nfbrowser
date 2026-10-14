@@ -83,6 +83,9 @@ struct BrowserView: View {
                     if let peekTab = tabManager.peekTab {
                         PeekOverlayView(tab: peekTab)
                     }
+                    if appState.showHistory {
+                        HistoryOverlayView()
+                    }
                 }
 
             if sidebarManager.isSidebarHidden {
@@ -112,6 +115,9 @@ struct BrowserView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleSidebarPosition)) { _ in
             sidebarManager.toggleSidebarPosition()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleHistory)) { _ in
+            appState.showHistory.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleAgentTerminal)) { notification in
             guard let targetWindow = notification.object as? NSWindow,

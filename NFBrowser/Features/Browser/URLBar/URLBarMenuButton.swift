@@ -354,7 +354,19 @@ struct URLBarMenuButton: View {
         schemeItem.submenu = schemeMenu
         menu.addItem(schemeItem)
 
-        menu.addItem(NSMenuItem.separator())
+        // History
+        let historyItem = NSMenuItem(
+            title: "Browsing History",
+            action: #selector(MenuActions.shareAction(_:)),
+            keyEquivalent: "y"
+        )
+        historyItem.keyEquivalentModifierMask = [.command]
+        let historyDelegate = MenuActions {
+            NotificationCenter.default.post(name: .toggleHistory, object: NSApp.keyWindow)
+        }
+        historyItem.target = historyDelegate
+        historyItem.representedObject = historyDelegate
+        menu.addItem(historyItem)
 
         // 6. Share Link
         let shareItem = NSMenuItem(
