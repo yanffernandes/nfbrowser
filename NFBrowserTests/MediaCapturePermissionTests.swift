@@ -96,6 +96,26 @@ struct MediaCapturePermissionTests {
         #expect(user.questions.count == 1)
     }
 
+    @Test func sitePermissionsCanBeQueriedAndResetPerSite() throws {
+        let user = User()
+        let permissions = permissions(asking: user)
+        #expect(permissions.allowedDevices(for: "siteA.example") == [])
+        #expect(permissions.deniedDevices(for: "siteA.example") == [])
+
+        permissions.request([.camera, .microphone], from: "siteA.example") { _ in }
+        try user.answer(true)
+        #expect(permissions.allowedDevices(for: "siteA.example") == [.camera, .microphone])
+
+        permissions.request(.camera, from: "siteB.example") { _ in }
+        try user.answer(false)
+        #expect(permissions.deniedDevices(for: "siteB.example") == [.camera])
+
+        // Reset only siteA
+        permissions.reset(for: "siteA.example")
+        #expect(permissions.allowedDevices(for: "siteA.example") == [])
+        #expect(permissions.deniedDevices(for: "siteB.example") == [.camera])
+    }
+
     @Test func questionsNameTheSiteAndWhatItWants() {
         #expect(
             MediaCapturePermissions.question(for: [.camera, .microphone], from: "meet.example")

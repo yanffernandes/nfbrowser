@@ -206,6 +206,18 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
         }
     }
 
+    func allowedMediaDevices(for site: String) -> BrowserMediaDevices {
+        mediaCapture.allowedDevices(for: site)
+    }
+
+    func deniedMediaDevices(for site: String) -> BrowserMediaDevices {
+        mediaCapture.deniedDevices(for: site)
+    }
+
+    func resetMediaPermissions(for site: String) {
+        mediaCapture.reset(for: site)
+    }
+
     func browserPage(
         _ page: BrowserPage,
         runOpenPanelWith options: BrowserOpenPanelOptions,

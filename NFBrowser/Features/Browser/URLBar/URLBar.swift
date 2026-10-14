@@ -19,6 +19,7 @@ struct URLBar: View {
     // Display mode state
     @State private var showCopiedAnimation = false
     @State private var startWheelAnimation = false
+    @State private var showSiteInfo = false
 
     // Inline launcher state
     @StateObject private var launcherViewModel = LauncherViewModel()
@@ -337,19 +338,29 @@ struct URLBar: View {
 
     private func urlDisplayField(tab: Tab) -> some View {
         HStack(spacing: 8) {
-            // Security indicator
-            ZStack {
-                if tab.isLoading {
-                    ProgressView()
-                        .tint(buttonForegroundColor)
-                        .scaleEffect(0.5)
-                } else {
-                    Image(systemName: securityIconName(for: tab.url))
-                        .font(.system(size: 12))
-                        .foregroundColor(buttonForegroundColor)
+            // Security indicator button with SiteInfoPopover
+            Button {
+                showSiteInfo.toggle()
+            } label: {
+                ZStack {
+                    if tab.isLoading {
+                        ProgressView()
+                            .tint(buttonForegroundColor)
+                            .scaleEffect(0.5)
+                    } else {
+                        Image(systemName: securityIconName(for: tab.url))
+                            .font(.system(size: 12))
+                            .foregroundColor(buttonForegroundColor)
+                    }
                 }
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
             }
-            .frame(width: 16, height: 16)
+            .buttonStyle(.plain)
+            .popover(isPresented: $showSiteInfo, arrowEdge: .bottom) {
+                SiteInfoPopover(tab: tab)
+            }
+            .help("View site information and permissions")
 
             ZStack(alignment: .leading) {
                 CopiedURLOverlay(

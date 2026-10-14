@@ -53,6 +53,20 @@ final class MediaCapturePermissions {
         questions = [:]
     }
 
+    func allowedDevices(for site: String) -> BrowserMediaDevices {
+        allowed[site, default: []]
+    }
+
+    func deniedDevices(for site: String) -> BrowserMediaDevices {
+        denied[site, default: []]
+    }
+
+    func reset(for site: String) {
+        allowed.removeValue(forKey: site)
+        denied.removeValue(forKey: site)
+        questions.removeValue(forKey: site)
+    }
+
     /// "Allow “meet.google.com” to use your camera and microphone?"
     static func question(for devices: BrowserMediaDevices, from site: String) -> String {
         let inputs = [(BrowserMediaDevices.camera, "camera"), (.microphone, "microphone")]
