@@ -241,7 +241,10 @@ struct URLBar: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
-                .zIndex(1)
+                if !downloadManager.activeDownloads.isEmpty || downloadManager.isShowingDownloadsHistory {
+                    DownloadsWidget()
+                        .transition(.scale.combined(with: .opacity))
+                }
 
                 URLBarMenuButton(
                     foregroundColor: buttonForegroundColor,

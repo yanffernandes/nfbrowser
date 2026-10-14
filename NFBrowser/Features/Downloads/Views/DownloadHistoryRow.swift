@@ -77,6 +77,12 @@ struct DownloadHistoryRow: View {
                 downloadManager.openFile(download)
             }
         }
+        .onDrag {
+            if download.status == .completed, let dest = download.destinationURL, FileManager.default.fileExists(atPath: dest.path) {
+                return NSItemProvider(contentsOf: dest) ?? NSItemProvider()
+            }
+            return NSItemProvider()
+        }
         .contextMenu {
             downloadMenuItems
         }

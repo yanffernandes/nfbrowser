@@ -98,6 +98,7 @@ class DownloadManager: ObservableObject {
         refreshRecentDownloads()
 
         toastManager?.show("Downloaded \(download.fileName)", icon: .system("checkmark.circle"))
+        NSSound(named: "Glass")?.play()
     }
 
     func failDownload(_ download: Download, error: String) {
