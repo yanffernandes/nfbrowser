@@ -288,6 +288,29 @@ struct TabItem: View {
 
         Divider()
 
+        if !tab.container.folders.isEmpty || tab.folder != nil {
+            Menu("Folder") {
+                if let currentFolder = tab.folder {
+                    Button(action: {
+                        tabManager.moveTab(tab, to: nil)
+                    }) {
+                        Label("Remove from “\(currentFolder.name)”", systemImage: "folder.badge.minus")
+                    }
+                    Divider()
+                }
+
+                ForEach(tab.container.folders) { folder in
+                    if folder.id != tab.folder?.id {
+                        Button(action: {
+                            tabManager.moveTab(tab, to: folder)
+                        }) {
+                            Label(folder.name, systemImage: "folder")
+                        }
+                    }
+                }
+            }
+        }
+
         if availableContainers.count > 1 {
             Divider()
 

@@ -20,10 +20,69 @@ struct NormalTabsList: View {
     @EnvironmentObject var tabManager: TabManager
     @State private var previousTabIds: [UUID] = []
 
+    private var rootTabs: [Tab] {
+        tabs.filter { $0.folder == nil }
+    }
+
+    private var folders: [Folder] {
+        tabManager.activeContainer?.folders ?? []
+    }
+
     var body: some View {
         VStack(spacing: 8) {
-            NewTabButton(addNewTab: onAddNewTab)
-            ForEach(tabs) { tab in
+            HStack(spacing: 6) {
+                NewTabButton(addNewTab: onAddNewTab)
+
+                Button(action: {
+                    if let container = tabManager.activeContainer {
+                        let count = container.folders.count + 1
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            tabManager.createFolder(name: "Folder \(count)", in: container)
+                        }
+                    }
+                }) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .help("New Folder")
+            }
+
+            // Folders
+            ForEach(folders) { folder in
+                FolderItemView(
+                    folder: folder,
+                    draggedItem: $draggedItem,
+                    onDrag: onDrag,
+                    onSelect: onSelect,
+                    onPinToggle: onPinToggle,
+                    onFavoriteToggle: onFavoriteToggle,
+                    onClose: onClose,
+                    onDuplicate: onDuplicate,
+                    onMoveToContainer: onMoveToContainer,
+                    onAddNewTabInFolder: { targetFolder in
+                        if let container = tabManager.activeContainer {
+                            let newTab = tabManager.openTab(
+                                url: URL(string: "about:blank")!,
+                                historyManager: tabManager.historyManager ?? HistoryManager(modelContainer: tabManager.modelContainer, modelContext: tabManager.modelContext),
+                                downloadManager: tabManager.downloadManager,
+                                isPrivate: false
+                            )
+                            if let newTab {
+                                tabManager.moveTab(newTab, to: targetFolder)
+                            }
+                        }
+                    },
+                    containers: containers
+                )
+            }
+
+            // Loose tabs (not in any folder)
+            ForEach(rootTabs) { tab in
                 TabItem(
                     tab: tab,
                     isSelected: tabManager.isActive(tab),
@@ -49,7 +108,7 @@ struct NormalTabsList: View {
                     insertion: .opacity.combined(with: .move(edge: .bottom)),
                     removal: .opacity
                 ))
-                .animation(.spring(response: 0.22, dampingFraction: 0.85), value: tabs.map(\.id))
+                .animation(.spring(response: 0.22, dampingFraction: 0.85), value: rootTabs.map(\.id))
             }
         }
         .onDrop(

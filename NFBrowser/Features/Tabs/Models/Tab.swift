@@ -67,6 +67,7 @@ class Tab: ObservableObject, Identifiable {
     @Transient @Published var qaState: QAModeState = QAModeState()
 
     @Relationship(inverse: \TabContainer.tabs) var container: TabContainer
+    @Relationship(inverse: \Folder.tabs) var folder: Folder? = nil
 
     /// Whether this tab is considered alive (recently accessed)
     var isAlive: Bool {
@@ -88,7 +89,8 @@ class Tab: ObservableObject, Identifiable {
         historyManager: HistoryManager? = nil,
         downloadManager: DownloadManager? = nil,
         tabManager: TabManager? = nil,
-        isPrivate: Bool = false
+        isPrivate: Bool = false,
+        folder: Folder? = nil
     ) {
         let nowDate = Date()
         self.id = id
@@ -110,6 +112,7 @@ class Tab: ObservableObject, Identifiable {
         self.isPrivate = isPrivate
         self.passwordCoordinator = PasswordAutofillCoordinator(tab: self)
         self.isWebViewReady = false
+        self.folder = folder
     }
 
     func syncBackgroundColorFromHex() {

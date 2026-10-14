@@ -88,8 +88,7 @@ class TabManager: ObservableObject {
         self.modelContext = modelContext
         self.mediaController = mediaController
         self.tabSearchingService = tabSearchingService
-
-        self.modelContext.undoManager = UndoManager()
+        self.modelContext.undoManager = nil
         initializeActiveContainerAndTab()
 
         // Start automatic cleanup timer (every minute)
@@ -874,6 +873,51 @@ class TabManager: ObservableObject {
             loadSilently: true
         )
         duplicated?.customTitle = tab.customTitle
+    }
+
+    // MARK: - Folders
+
+    @discardableResult
+    func createFolder(name: String, in container: TabContainer) -> Folder {
+        let folder = Folder(name: name, container: container)
+        container.folders.append(folder)
+        modelContext.insert(folder)
+        try? modelContext.save()
+        return folder
+    }
+
+    func deleteFolder(_ folder: Folder, closeContainedTabs: Bool = false) {
+        let container = folder.container
+        if closeContainedTabs {
+            let tabsToClose = Array(folder.tabs)
+            for tab in tabsToClose {
+                closeTab(tab: tab, shouldTrackForRestore: false)
+            }
+        } else {
+            for tab in Array(folder.tabs) {
+                tab.folder = nil
+            }
+        }
+        container.folders.removeAll { $0.id == folder.id }
+        modelContext.delete(folder)
+        try? modelContext.save()
+    }
+
+    func renameFolder(_ folder: Folder, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        folder.name = trimmed
+        try? modelContext.save()
+    }
+
+    func moveTab(_ tab: Tab, to folder: Folder?) {
+        tab.folder = folder
+        try? modelContext.save()
+    }
+
+    func toggleFolder(_ folder: Folder) {
+        folder.isOpened.toggle()
+        try? modelContext.save()
     }
 
     func refreshPrivacySettings(for containerId: UUID) {
