@@ -466,10 +466,24 @@ final class WebKitBrowserPage: NSObject, BrowserPage, WKNavigationDelegate, WKUI
         _ webView: WKWebView,
         requestMediaCapturePermissionFor origin: WKSecurityOrigin,
         initiatedByFrame frame: WKFrameInfo,
+        type: WKMediaCaptureType,
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
-        let pageURL = URL(string: "\(origin.protocol)://\(origin.host):\(origin.port)")
-        delegate?.browserPage(self, requestPermission: .mediaCapture, origin: pageURL) { decision in
+        guard let delegate else {
+            decisionHandler(.deny)
+            return
+        }
+        let devices: BrowserMediaDevices = switch type {
+        case .camera: .camera
+        case .microphone: .microphone
+        default: [.camera, .microphone]
+        }
+        var components = URLComponents()
+        components.scheme = origin.protocol
+        components.host = origin.host
+        // WebKit reports the scheme's default port as 0.
+        components.port = origin.port == 0 ? nil : origin.port
+        delegate.browserPage(self, requestPermission: .mediaCapture(devices), origin: components.url) { decision in
             decisionHandler(decision == .grant ? .grant : .deny)
         }
     }

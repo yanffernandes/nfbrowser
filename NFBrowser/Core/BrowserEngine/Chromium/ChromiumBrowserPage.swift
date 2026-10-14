@@ -338,15 +338,24 @@ extension ChromiumBrowserPage: NFChromiumBrowserViewDelegate {
     func chromiumBrowserView(
         _ view: NFChromiumBrowserView,
         requestMediaAccessForOrigin origin: URL?,
-        video: Bool,
-        audio: Bool,
+        devices: NFChromiumMediaDevices,
         decision: @escaping (Bool) -> Void
     ) {
-        guard let delegate else {
+        var requested: BrowserMediaDevices = []
+        if devices.contains(.camera) {
+            requested.insert(.camera)
+        }
+        if devices.contains(.microphone) {
+            requested.insert(.microphone)
+        }
+        if devices.contains(.screen) {
+            requested.insert(.screen)
+        }
+        guard let delegate, !requested.isEmpty else {
             decision(false)
             return
         }
-        delegate.browserPage(self, requestPermission: .mediaCapture, origin: origin) { result in
+        delegate.browserPage(self, requestPermission: .mediaCapture(requested), origin: origin) { result in
             decision(result == .grant)
         }
     }

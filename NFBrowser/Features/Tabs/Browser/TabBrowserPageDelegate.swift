@@ -7,6 +7,13 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
     weak var passwordCoordinator: PasswordAutofillCoordinator?
 
     private var progressResetWorkItem: DispatchWorkItem?
+    private lazy var mediaCapture = MediaCapturePermissions { [weak self] site, devices, answer in
+        guard let self else {
+            answer(false)
+            return
+        }
+        MediaCapturePermissions.askInSheet(devices, from: site, near: tab?.browserPage?.window, answer: answer)
+    }
 
     func browserPage(
         _ page: BrowserPage,
@@ -111,6 +118,7 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
             }
 
         case .committed:
+            mediaCapture.reset()
             tab.isLoading = event.isLoading
             tab.loadingProgress = event.progress
             if let title = event.title, !title.isEmpty {
@@ -190,7 +198,12 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
         origin: URL?,
         decisionHandler: @escaping (BrowserPermissionDecision) -> Void
     ) {
-        decisionHandler(.grant)
+        switch permission {
+        case let .mediaCapture(devices):
+            mediaCapture.request(devices, from: MediaCapturePermissions.siteName(for: origin)) { granted in
+                decisionHandler(granted ? .grant : .deny)
+            }
+        }
     }
 
     func browserPage(

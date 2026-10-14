@@ -4,7 +4,8 @@
 
     /// Loopback server for the smoke test's privacy probes. `/top` on localhost frames
     /// `/frame` on 127.0.0.1, a different site, which posts back whether it could store a
-    /// cookie; `/ads` loads an ad script and an app script and shows an ad banner.
+    /// cookie; `/ads` loads an ad script and an app script and shows an ad banner;
+    /// `/media` asks for the camera and microphone.
     final class ChromiumSmokeServer {
         private let listener: NWListener
 
@@ -56,6 +57,8 @@
                 ("text/javascript", "window.loads.push('ad');")
             case "/app.js":
                 ("text/javascript", "window.loads.push('app');")
+            case "/media":
+                ("text/html", Self.mediaPage)
             default:
                 ("text/html", topPage)
             }
@@ -74,6 +77,20 @@
         <script>window.loads = [];</script>
         <script src="/ad.js"></script>
         <script src="/app.js"></script>
+        """
+
+        /// Keeps the outcome in window.media: the number of tracks, or the error's name.
+        private static let mediaPage = """
+        <script>
+        try {
+            navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
+                window.media = 'tracks ' + stream.getTracks().length;
+                stream.getTracks().forEach(track => track.stop());
+            }, error => { window.media = error.name });
+        } catch (error) {
+            window.media = error.name;
+        }
+        </script>
         """
 
         private var topPage: String {

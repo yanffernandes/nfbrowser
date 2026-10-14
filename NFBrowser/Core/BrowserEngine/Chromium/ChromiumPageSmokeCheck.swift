@@ -27,6 +27,9 @@
             let filterLists = await checkFilterLists(server: server, hostedIn: stack)
             report["filter_lists"] = filterLists.report
             checks.merge(filterLists.checks) { $1 }
+            let media = await MediaCaptureSmokeCheck.run(server: server, hostedIn: stack)
+            report["media_capture"] = media.report
+            checks.merge(media.checks) { $1 }
             return (report, checks)
         }
 

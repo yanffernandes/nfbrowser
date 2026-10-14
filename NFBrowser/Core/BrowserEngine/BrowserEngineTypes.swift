@@ -2,10 +2,12 @@ import AppKit
 import Foundation
 
 enum BrowserEngineKind: String, Codable, CaseIterable, Identifiable {
-    case webkit = "webkit"
-    case chromium = "chromium"
+    case webkit
+    case chromium
 
-    var id: String { rawValue }
+    var id: String {
+        rawValue
+    }
 
     var displayName: String {
         switch self {
@@ -57,8 +59,18 @@ struct BrowserOpenPanelOptions {
     let allowsMultipleSelection: Bool
 }
 
+/// What a page wants to capture: getUserMedia asks for the camera and microphone,
+/// getDisplayMedia for the screen.
+struct BrowserMediaDevices: OptionSet {
+    let rawValue: Int
+
+    static let camera = BrowserMediaDevices(rawValue: 1 << 0)
+    static let microphone = BrowserMediaDevices(rawValue: 1 << 1)
+    static let screen = BrowserMediaDevices(rawValue: 1 << 2)
+}
+
 enum BrowserPermissionKind {
-    case mediaCapture
+    case mediaCapture(BrowserMediaDevices)
 }
 
 enum BrowserPermissionDecision {

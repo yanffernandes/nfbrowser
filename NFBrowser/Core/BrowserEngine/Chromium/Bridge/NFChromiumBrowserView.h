@@ -12,6 +12,14 @@ typedef NS_ENUM(NSInteger, NFChromiumJavaScriptDialogType) {
     NFChromiumJavaScriptDialogTypePrompt,
 };
 
+/// What a page asks to capture.
+typedef NS_OPTIONS(NSUInteger, NFChromiumMediaDevices) {
+    NFChromiumMediaDeviceCamera = 1 << 0,
+    NFChromiumMediaDeviceMicrophone = 1 << 1,
+    /// getDisplayMedia, with or without the system's audio.
+    NFChromiumMediaDeviceScreen = 1 << 2,
+};
+
 /// A download started by a Chromium page. Values refresh on every update callback.
 @interface NFChromiumDownload : NSObject
 @property (nonatomic, readonly) uint32_t identifier;
@@ -65,10 +73,11 @@ typedef NS_ENUM(NSInteger, NFChromiumJavaScriptDialogType) {
     decideDestinationForDownload:(NFChromiumDownload *)download
                       completion:(void (^)(NSURL *_Nullable destination))completion;
 - (void)chromiumBrowserView:(NFChromiumBrowserView *)view downloadDidUpdate:(NFChromiumDownload *)download;
+/// Camera and microphone (getUserMedia) or the screen (getDisplayMedia). Without this
+/// method every request is denied.
 - (void)chromiumBrowserView:(NFChromiumBrowserView *)view
     requestMediaAccessForOrigin:(nullable NSURL *)origin
-                          video:(BOOL)video
-                          audio:(BOOL)audio
+                        devices:(NFChromiumMediaDevices)devices
                        decision:(void (^)(BOOL granted))decision;
 /// alert/confirm/prompt. Called asynchronously, outside Chromium's message loop; call
 /// the completion exactly once. Without this method Chromium shows its own dialogs.

@@ -1255,16 +1255,22 @@ typedef void (^NFDevToolsCompletion)(NSDictionary<NSString *, id> *_Nullable, NS
                            permissions:(uint32_t)permissions
                               callback:(CefRefPtr<CefMediaAccessCallback>)callback {
     id<NFChromiumBrowserViewDelegate> delegate = self.delegate;
-    if (![delegate respondsToSelector:@selector(chromiumBrowserView:
-                                          requestMediaAccessForOrigin:video:audio:decision:)]) {
+    if (![delegate respondsToSelector:@selector(chromiumBrowserView:requestMediaAccessForOrigin:devices:decision:)]) {
         return NO;
     }
-    BOOL video = (permissions & CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE) != 0;
-    BOOL audio = (permissions & CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE) != 0;
+    NFChromiumMediaDevices devices = 0;
+    if (permissions & CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE) {
+        devices |= NFChromiumMediaDeviceCamera;
+    }
+    if (permissions & CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE) {
+        devices |= NFChromiumMediaDeviceMicrophone;
+    }
+    if (permissions & (CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE | CEF_MEDIA_PERMISSION_DESKTOP_AUDIO_CAPTURE)) {
+        devices |= NFChromiumMediaDeviceScreen;
+    }
     [delegate chromiumBrowserView:self
         requestMediaAccessForOrigin:origin
-                              video:video
-                              audio:audio
+                            devices:devices
                            decision:^(BOOL granted) {
                              if (granted) {
                                  callback->Continue(permissions);
