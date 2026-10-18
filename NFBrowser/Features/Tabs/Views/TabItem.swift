@@ -5,6 +5,7 @@ struct LocalFavIcon: View {
     let faviconLocalFile: URL?
     let textColor: Color
     var fallbackSystemImage: String = "globe"
+    var size: CGFloat = 16
 
     @State private var image: NSImage?
 
@@ -14,13 +15,13 @@ struct LocalFavIcon: View {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 16, height: 16)
+                    .frame(width: size, height: size)
                     .cornerRadius(4)
             } else {
                 Image(systemName: fallbackSystemImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 16, height: 16)
+                    .frame(width: size, height: size)
                     .foregroundColor(textColor)
             }
         }
@@ -28,10 +29,13 @@ struct LocalFavIcon: View {
     }
 
     private func loadFavicon() {
-        guard let localURL = faviconLocalFile,
-              FileManager.default.fileExists(atPath: localURL.path) else { return }
+        guard let localURL = faviconLocalFile else { return }
+        if let cached = FaviconService.shared.cachedFavicon(for: nil, localFileURL: localURL) {
+            self.image = cached
+            return
+        }
+        guard FileManager.default.fileExists(atPath: localURL.path) else { return }
 
-        // Loading may block briefly, so you can even do it async if needed
         DispatchQueue.global(qos: .utility).async {
             if let loadedImage = NSImage(contentsOfFile: localURL.path) {
                 DispatchQueue.main.async {
@@ -43,37 +47,21 @@ struct LocalFavIcon: View {
 }
 
 struct FavIcon: View {
-    let isWebViewReady: Bool
+    var isWebViewReady: Bool = false
     let favicon: URL?
     let faviconLocalFile: URL?
     let textColor: Color
+    var domain: String? = nil
     var isPlayingMedia: Bool = false
     var fallbackSystemImage: String = "globe"
+    var size: CGFloat = 16
+
+    @State private var loadedImage: NSImage?
 
     var body: some View {
         HStack(spacing: 4) {
-            if let favicon, isWebViewReady {
-                AsyncImage(
-                    url: favicon
-                ) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                } placeholder: {
-                    LocalFavIcon(
-                        faviconLocalFile: faviconLocalFile,
-                        textColor: textColor,
-                        fallbackSystemImage: fallbackSystemImage
-                    )
-                }
-            } else {
-                LocalFavIcon(
-                    faviconLocalFile: faviconLocalFile,
-                    textColor: textColor,
-                    fallbackSystemImage: fallbackSystemImage
-                )
-            }
+            iconView
+                .frame(width: size, height: size)
 
             if isPlayingMedia {
                 Image(systemName: "speaker.wave.2.fill")
@@ -83,7 +71,98 @@ struct FavIcon: View {
                     .foregroundColor(textColor.opacity(0.8))
             }
         }
-        .frame(width: isPlayingMedia ? 28 : 16, height: 16)
+        .frame(width: isPlayingMedia ? (size + 12) : size, height: size)
+        .onAppear {
+            checkFastCache()
+        }
+        .task(id: iconIdentity) {
+            await resolveFavicon()
+        }
+    }
+
+    private var iconIdentity: String {
+        "\(faviconLocalFile?.path ?? "")|\(favicon?.absoluteString ?? "")|\(domain ?? "")"
+    }
+
+    @ViewBuilder
+    private var iconView: some View {
+        if let loadedImage {
+            Image(nsImage: loadedImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+                .cornerRadius(4)
+        } else if let favicon, FaviconService.shared.isLikelyImageURL(favicon) {
+            AsyncImage(url: favicon) { phase in
+                switch phase {
+                case let .success(image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: size, height: size)
+                        .cornerRadius(4)
+                default:
+                    fallbackImageView
+                }
+            }
+        } else {
+            fallbackImageView
+        }
+    }
+
+    private var fallbackImageView: some View {
+        Image(systemName: fallbackSystemImage)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundColor(textColor)
+    }
+
+    private func checkFastCache() {
+        if loadedImage == nil {
+            if let cached = FaviconService.shared.cachedFavicon(
+                for: domain,
+                faviconURL: favicon,
+                localFileURL: faviconLocalFile
+            ) {
+                self.loadedImage = cached
+            }
+        }
+    }
+
+    private func resolveFavicon() async {
+        if let cached = FaviconService.shared.cachedFavicon(
+            for: domain,
+            faviconURL: favicon,
+            localFileURL: faviconLocalFile
+        ) {
+            await MainActor.run {
+                self.loadedImage = cached
+            }
+            return
+        }
+
+        if let remoteURL = favicon, FaviconService.shared.isLikelyImageURL(remoteURL) {
+            FaviconService.shared.downloadAndCacheFavicon(
+                from: remoteURL,
+                domain: domain,
+                localFileURL: faviconLocalFile
+            ) { image in
+                if let image {
+                    Task { @MainActor in
+                        self.loadedImage = image
+                    }
+                }
+            }
+        } else if let domain, !domain.isEmpty {
+            FaviconService.shared.fetchFaviconSync(for: "https://\(domain)") { image in
+                if let image {
+                    Task { @MainActor in
+                        self.loadedImage = image
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -116,8 +195,10 @@ struct TabItem: View {
                         favicon: tab.favicon,
                         faviconLocalFile: tab.faviconLocalFile,
                         textColor: textColor,
+                        domain: tab.url.host,
                         isPlayingMedia: tab.isPlayingMedia,
-                        fallbackSystemImage: tab.url.isFileURL ? "doc.text" : "globe"
+                        fallbackSystemImage: tab.url.isFileURL ? "doc.text" : "globe",
+                        size: 16
                     )
                     tabTitle
                     if tab.isAgentActive {

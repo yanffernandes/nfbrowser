@@ -23,26 +23,16 @@ struct FavTabItem: View {
 
     var body: some View {
         ZStack {
-            if let favicon = tab.favicon, tab.isWebViewReady {
-                AsyncImage(
-                    url: favicon
-                ) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
-                } placeholder: {
-                    LocalFavIcon(
-                        faviconLocalFile: tab.faviconLocalFile,
-                        textColor: Color(.white)
-                    )
-                }
-            } else {
-                LocalFavIcon(
-                    faviconLocalFile: tab.faviconLocalFile,
-                    textColor: Color(.white)
-                )
-            }
+            FavIcon(
+                isWebViewReady: tab.isWebViewReady,
+                favicon: tab.favicon,
+                faviconLocalFile: tab.faviconLocalFile,
+                textColor: Color(.white),
+                domain: tab.url.host,
+                isPlayingMedia: false,
+                fallbackSystemImage: tab.url.isFileURL ? "doc.text" : "globe",
+                size: 20
+            )
 
             if tab.isPlayingMedia {
                 VStack {

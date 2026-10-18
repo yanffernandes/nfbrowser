@@ -12,12 +12,114 @@ final class FaviconService: ObservableObject {
     private var isFetching: Set<String> = []
     private var pendingCompletions: [String: [(NSImage?) -> Void]] = [:]
     private var pendingFileWrites: [String: [(URL, (URL?, Bool) -> Void)]] = [:]
+    private let lock = NSLock()
+
+    var persistentFaviconDirectory: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("NFBrowser/Favicons", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+
+    var legacyFaviconDirectory: URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches.appendingPathComponent("Favicons", isDirectory: true)
+    }
+
+    func persistentURL(forDomain domain: String) -> URL {
+        let normalized = normalizeDomain(domain)
+        let safeName = normalized
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+        return persistentFaviconDirectory.appendingPathComponent("\(safeName).png")
+    }
+
+    func persistentURL(forTabId id: UUID) -> URL {
+        persistentFaviconDirectory.appendingPathComponent("\(id.uuidString).png")
+    }
+
+    func isLikelyImageURL(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        if ["ico", "png", "svg", "jpg", "jpeg", "webp", "gif"].contains(ext) {
+            return true
+        }
+        let lower = url.absoluteString.lowercased()
+        return lower.contains("favicon") || lower.contains("apple-touch-icon") || lower.contains("s2/favicons")
+    }
+
+    func cachedFavicon(
+        for domain: String?,
+        faviconURL: URL? = nil,
+        localFileURL: URL? = nil
+    ) -> NSImage? {
+        let normalizedDomain = domain.flatMap { normalizeDomain($0) }
+
+        lock.lock()
+        // 1. Check in-memory cache
+        if let localFileURL, let img = cache[localFileURL.path] {
+            lock.unlock()
+            return img
+        }
+        if let normalizedDomain, let img = cache[normalizedDomain] {
+            lock.unlock()
+            return img
+        }
+        if let urlKey = faviconURL?.absoluteString, let img = cache[urlKey] {
+            lock.unlock()
+            return img
+        }
+        lock.unlock()
+
+        // 2. Check disk cache
+        var candidateURLs: [URL] = []
+        if let localFileURL {
+            candidateURLs.append(localFileURL)
+        }
+        if let normalizedDomain, !normalizedDomain.isEmpty {
+            candidateURLs.append(persistentURL(forDomain: normalizedDomain))
+            candidateURLs.append(legacyFaviconDirectory.appendingPathComponent("\(normalizedDomain).png"))
+        }
+
+        for fileURL in candidateURLs {
+            if FileManager.default.fileExists(atPath: fileURL.path),
+               let data = try? Data(contentsOf: fileURL),
+               let image = NSImage(data: data) {
+                lock.lock()
+                if let localFileURL { cache[localFileURL.path] = image }
+                if let normalizedDomain {
+                    cache[normalizedDomain] = image
+                    imageDataCache[normalizedDomain] = data
+                }
+                if let urlKey = faviconURL?.absoluteString { cache[urlKey] = image }
+                lock.unlock()
+                return image
+            }
+        }
+
+        return nil
+    }
 
     func getFavicon(for searchURL: String) -> NSImage? {
         guard let domain = extractDomain(from: searchURL) else { return nil }
 
+        lock.lock()
         if let cachedFavicon = cache[domain] {
+            lock.unlock()
             return cachedFavicon
+        }
+        lock.unlock()
+
+        let diskFile = persistentURL(forDomain: domain)
+        if FileManager.default.fileExists(atPath: diskFile.path),
+           let data = try? Data(contentsOf: diskFile),
+           let image = NSImage(data: data) {
+            lock.lock()
+            cache[domain] = image
+            imageDataCache[domain] = data
+            lock.unlock()
+            return image
         }
 
         fetchAndCacheFavicon(for: domain)
@@ -27,16 +129,19 @@ final class FaviconService: ObservableObject {
     func getFaviconColor(for searchURL: String) -> Color? {
         guard let domain = extractDomain(from: searchURL) else { return nil }
 
+        lock.lock()
         if let cachedColor = colorCache[domain] {
+            lock.unlock()
             return cachedColor
         }
 
-        // If favicon exists but color doesn't, compute it
         if let favicon = cache[domain] {
             let color = Color(favicon.averageColor())
             colorCache[domain] = color
+            lock.unlock()
             return color
         }
+        lock.unlock()
 
         fetchAndCacheFavicon(for: domain)
         return nil
@@ -44,12 +149,20 @@ final class FaviconService: ObservableObject {
 
     func faviconURL(for domain: String) -> URL? {
         let normalizedDomain = normalizeDomain(domain)
-        return sourceURLCache[normalizedDomain] ?? canonicalURL(for: normalizedDomain)
+        lock.lock()
+        let cached = sourceURLCache[normalizedDomain]
+        lock.unlock()
+
+        if let cached {
+            return cached
+        }
+        guard !normalizedDomain.isEmpty else { return nil }
+        return URL(string: "https://\(normalizedDomain)/favicon.ico")
     }
 
     func faviconURL(forSearchURL searchURL: String) -> URL? {
         guard let domain = extractDomain(from: searchURL) else { return nil }
-        return canonicalURL(for: domain)
+        return faviconURL(for: domain)
     }
 
     private func extractDomain(from searchURL: String) -> String? {
@@ -69,7 +182,7 @@ final class FaviconService: ObservableObject {
         return nil
     }
 
-    private func normalizeDomain(_ domain: String) -> String {
+    func normalizeDomain(_ domain: String) -> String {
         let lowercased = domain.lowercased()
         return lowercased.hasPrefix("www.") ? String(lowercased.dropFirst(4)) : lowercased
     }
@@ -84,15 +197,92 @@ final class FaviconService: ObservableObject {
             completion(nil)
             return
         }
-        if let cachedFavicon = cache[domain] {
-            completion(cachedFavicon)
+
+        if let cached = cachedFavicon(for: domain) {
+            completion(cached)
             return
         }
+
         fetchAndCacheFavicon(for: domain, completion: completion)
     }
 
+    func downloadAndCacheFavicon(
+        from remoteURL: URL,
+        domain: String?,
+        localFileURL: URL? = nil,
+        completion: ((NSImage?) -> Void)? = nil
+    ) {
+        let normalizedDomain = domain.map { normalizeDomain($0) }
+
+        if remoteURL.isFileURL {
+            if let image = NSImage(contentsOf: remoteURL) {
+                lock.lock()
+                if let normalizedDomain {
+                    cache[normalizedDomain] = image
+                }
+                if let localFileURL {
+                    cache[localFileURL.path] = image
+                }
+                lock.unlock()
+                completion?(image)
+                return
+            }
+        }
+
+        Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            do {
+                var request = URLRequest(url: remoteURL)
+                request.timeoutInterval = 8.0
+                request.setValue(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
+                    forHTTPHeaderField: "User-Agent"
+                )
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse,
+                      (200...299).contains(httpResponse.statusCode),
+                      !data.isEmpty,
+                      let image = NSImage(data: data)
+                else {
+                    await MainActor.run { completion?(nil) }
+                    return
+                }
+
+                if let localFileURL {
+                    try? data.write(to: localFileURL, options: .atomic)
+                }
+                if let normalizedDomain, !normalizedDomain.isEmpty {
+                    let domainFile = self.persistentURL(forDomain: normalizedDomain)
+                    try? data.write(to: domainFile, options: .atomic)
+                }
+
+                await MainActor.run {
+                    self.lock.lock()
+                    if let normalizedDomain {
+                        self.cache[normalizedDomain] = image
+                        self.imageDataCache[normalizedDomain] = data
+                        self.sourceURLCache[normalizedDomain] = remoteURL
+                        self.colorCache[normalizedDomain] = Color(image.averageColor())
+                    }
+                    if let localFileURL {
+                        self.cache[localFileURL.path] = image
+                    }
+                    self.cache[remoteURL.absoluteString] = image
+                    self.lock.unlock()
+                    self.objectWillChange.send()
+                    completion?(image)
+                }
+            } catch {
+                await MainActor.run { completion?(nil) }
+            }
+        }
+    }
+
     private func fetchAndCacheFavicon(for domain: String, completion: ((NSImage?) -> Void)? = nil) {
+        lock.lock()
         if let cachedFavicon = cache[domain] {
+            lock.unlock()
             completion?(cachedFavicon)
             return
         }
@@ -101,8 +291,12 @@ final class FaviconService: ObservableObject {
             pendingCompletions[domain, default: []].append(completion)
         }
 
-        guard !isFetching.contains(domain) else { return }
+        guard !isFetching.contains(domain) else {
+            lock.unlock()
+            return
+        }
         isFetching.insert(domain)
+        lock.unlock()
 
         Task(priority: .utility) { [weak self] in
             guard let self else { return }
@@ -120,6 +314,7 @@ final class FaviconService: ObservableObject {
 
     @MainActor
     private func completeFetch(for domain: String, favicon: NSImage?, sourceURL: URL?, imageData: Data?) {
+        lock.lock()
         if let favicon {
             cache[domain] = favicon
             colorCache[domain] = Color(favicon.averageColor())
@@ -130,15 +325,19 @@ final class FaviconService: ObservableObject {
         }
         if let imageData {
             imageDataCache[domain] = imageData
+            let domainFile = persistentURL(forDomain: domain)
+            try? imageData.write(to: domainFile, options: .atomic)
         }
 
         isFetching.remove(domain)
         let completions = pendingCompletions.removeValue(forKey: domain) ?? []
+        let fileWrites = pendingFileWrites.removeValue(forKey: domain) ?? []
+        lock.unlock()
+
         for completion in completions {
             completion(favicon)
         }
 
-        let fileWrites = pendingFileWrites.removeValue(forKey: domain) ?? []
         for (url, completion) in fileWrites {
             guard let imageData = imageDataCache[domain] else {
                 completion(nil, false)
@@ -156,13 +355,51 @@ final class FaviconService: ObservableObject {
     private func fetchFaviconPayload(for domain: String) async -> (image: NSImage, data: Data, sourceURL: URL)? {
         guard let siteURL = canonicalURL(for: domain) else { return nil }
 
+        // 1. Try FaviconFinder
         do {
             let favicon = try await FaviconFinder(url: siteURL)
                 .fetchFaviconURLs()
                 .download()
                 .largest()
-            guard let faviconImage = favicon.image else { return nil }
-            return (faviconImage.image, faviconImage.data, favicon.url.source)
+            if let faviconImage = favicon.image {
+                return (faviconImage.image, faviconImage.data, favicon.url.source)
+            }
+        } catch {}
+
+        // 2. Direct fallback to https://<domain>/favicon.ico
+        if let directURL = URL(string: "https://\(domain)/favicon.ico") {
+            if let result = await downloadImagePayload(from: directURL) {
+                return result
+            }
+        }
+
+        // 3. Fallback to Google S2 Favicon service
+        if let googleURL = URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64") {
+            if let result = await downloadImagePayload(from: googleURL) {
+                return result
+            }
+        }
+
+        return nil
+    }
+
+    private func downloadImagePayload(from url: URL) async -> (image: NSImage, data: Data, sourceURL: URL)? {
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 6.0
+            request.setValue(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
+                forHTTPHeaderField: "User-Agent"
+            )
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  !data.isEmpty,
+                  let image = NSImage(data: data)
+            else {
+                return nil
+            }
+            return (image, data, url)
         } catch {
             return nil
         }
@@ -170,34 +407,79 @@ final class FaviconService: ObservableObject {
 
     func downloadAndSaveFavicon(
         for domain: String,
-        faviconURL _: URL,
+        faviconURL: URL,
         to saveURL: URL,
         completion: @escaping (URL?, Bool) -> Void
     ) {
         let normalizedDomain = normalizeDomain(domain)
+
+        // 1. Check in-memory image data
         if let data = imageDataCache[normalizedDomain] ?? pngData(from: cache[normalizedDomain]) {
             do {
                 try data.write(to: saveURL, options: .atomic)
-                completion(faviconURL(for: normalizedDomain), true)
+                let domainURL = persistentURL(forDomain: normalizedDomain)
+                try? data.write(to: domainURL, options: .atomic)
+                completion(self.faviconURL(for: normalizedDomain), true)
             } catch {
                 completion(nil, false)
             }
             return
         }
 
-        pendingFileWrites[normalizedDomain, default: []].append((saveURL, completion))
-        guard !isFetching.contains(normalizedDomain) else { return }
-        isFetching.insert(normalizedDomain)
+        // 2. Check persistent disk cache for domain
+        let domainFile = persistentURL(forDomain: normalizedDomain)
+        if FileManager.default.fileExists(atPath: domainFile.path),
+           let data = try? Data(contentsOf: domainFile),
+           let image = NSImage(data: data) {
+            lock.lock()
+            cache[normalizedDomain] = image
+            imageDataCache[normalizedDomain] = data
+            lock.unlock()
+            do {
+                try data.write(to: saveURL, options: .atomic)
+                completion(self.faviconURL(for: normalizedDomain), true)
+            } catch {
+                completion(nil, false)
+            }
+            return
+        }
+
+        // 3. If a direct remote image URL was provided
+        if isLikelyImageURL(faviconURL) {
+            downloadAndCacheFavicon(from: faviconURL, domain: normalizedDomain, localFileURL: saveURL) { image in
+                if image != nil {
+                    completion(faviconURL, true)
+                } else {
+                    self.fetchViaFaviconFinder(for: normalizedDomain, saveURL: saveURL, completion: completion)
+                }
+            }
+            return
+        }
+
+        // 4. Otherwise use FaviconFinder + fallbacks
+        fetchViaFaviconFinder(for: normalizedDomain, saveURL: saveURL, completion: completion)
+    }
+
+    private func fetchViaFaviconFinder(
+        for domain: String,
+        saveURL: URL,
+        completion: @escaping (URL?, Bool) -> Void
+    ) {
+        lock.lock()
+        pendingFileWrites[domain, default: []].append((saveURL, completion))
+        guard !isFetching.contains(domain) else {
+            lock.unlock()
+            return
+        }
+        isFetching.insert(domain)
+        lock.unlock()
 
         Task(priority: .utility) { [weak self] in
-            guard let self else {
-                return
-            }
-
-            let payload = await self.fetchFaviconPayload(for: normalizedDomain)
+            guard let self else { return }
+            let payload = await self.fetchFaviconPayload(for: domain)
             await MainActor.run {
                 self.completeFetch(
-                    for: normalizedDomain,
+                    for: domain,
                     favicon: payload?.image,
                     sourceURL: payload?.sourceURL,
                     imageData: payload?.data

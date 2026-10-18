@@ -39,6 +39,7 @@ struct BrowserTabSplitContainer: View {
                     favicon: tab.favicon,
                     faviconLocalFile: tab.faviconLocalFile,
                     textColor: .white,
+                    domain: tab.url.host,
                     isPlayingMedia: tab.isPlayingMedia
                 )
 

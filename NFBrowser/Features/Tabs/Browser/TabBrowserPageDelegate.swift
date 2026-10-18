@@ -139,7 +139,8 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
             }
             if let url = event.url {
                 tab.url = url
-                if tab.favicon == nil {
+                let hasLocalFile = tab.faviconLocalFile.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+                if tab.favicon == nil || !hasLocalFile {
                     tab.setFavicon()
                 }
                 tab.updateHistory()
@@ -327,7 +328,12 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
         if titleChanged {
             tab.title = update.title
         }
-        if urlChanged {
+        if let faviconStr = update.favicon, !faviconStr.isEmpty, let favURL = URL(string: faviconStr) {
+            if tab.favicon != favURL {
+                tab.favicon = favURL
+                tab.setFavicon(withURL: favURL)
+            }
+        } else if urlChanged {
             tab.url = newURL
             tab.setFavicon()
         }

@@ -75,6 +75,7 @@ enum OraBrowserScripts {
     (function () {
         let lastHref = location.href;
         let lastTitle = document.title;
+        let lastFavicon = '';
 
         function post(name, payload) {
             try {
@@ -82,11 +83,22 @@ enum OraBrowserScripts {
             } catch (error) {}
         }
 
+        function getFaviconUrl() {
+            try {
+                const link = document.querySelector('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+                return link && link.href ? link.href : '';
+            } catch (e) {
+                return '';
+            }
+        }
+
         function notifyChange(force = false) {
-            if (force || location.href !== lastHref || document.title !== lastTitle) {
+            const currentFavicon = getFaviconUrl();
+            if (force || location.href !== lastHref || document.title !== lastTitle || currentFavicon !== lastFavicon) {
                 lastHref = location.href;
                 lastTitle = document.title;
-                post('listener', JSON.stringify({ href: lastHref, title: lastTitle }));
+                lastFavicon = currentFavicon;
+                post('listener', JSON.stringify({ href: lastHref, title: lastTitle, favicon: lastFavicon }));
             }
         }
 
@@ -94,6 +106,12 @@ enum OraBrowserScripts {
         const titleElement = document.querySelector('title');
         if (titleElement) {
             titleObserver.observe(titleElement, { childList: true });
+        }
+
+        const headElement = document.head || document.querySelector('head');
+        if (headElement) {
+            const headObserver = new MutationObserver(() => notifyChange());
+            headObserver.observe(headElement, { childList: true, subtree: true });
         }
 
         try {

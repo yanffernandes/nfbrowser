@@ -183,6 +183,7 @@ struct FloatingTabSwitcher: View {
                 favicon: tab.favicon,
                 faviconLocalFile: tab.faviconLocalFile,
                 textColor: theme.foreground,
+                domain: tab.url.host,
                 isPlayingMedia: tab.isPlayingMedia
             )
             .frame(width: 16, height: 16)

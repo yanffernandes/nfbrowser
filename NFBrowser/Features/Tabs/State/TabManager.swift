@@ -203,6 +203,51 @@ class TabManager: ObservableObject {
             let newContainer = createContainer()
             activeContainer = newContainer
         }
+        warmFavicons(for: containers)
+    }
+
+    private func warmFavicons(for containers: [TabContainer]) {
+        Task(priority: .utility) {
+            for container in containers {
+                for tab in container.tabs {
+                    let hasLocalFile = tab.faviconLocalFile.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+                    let host = tab.url.host ?? ""
+                    let domain = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+                    guard !domain.isEmpty else { continue }
+
+                    let domainURL = FaviconService.shared.persistentURL(forDomain: domain)
+                    let hasDomainFile = FileManager.default.fileExists(atPath: domainURL.path)
+
+                    if !hasLocalFile && hasDomainFile {
+                        await MainActor.run {
+                            tab.faviconLocalFile = domainURL
+                        }
+                        continue
+                    }
+
+                    if !hasLocalFile && !hasDomainFile {
+                        if let faviconURL = tab.favicon, FaviconService.shared.isLikelyImageURL(faviconURL) {
+                            let saveURL = FaviconService.shared.persistentURL(forTabId: tab.id)
+                            FaviconService.shared.downloadAndCacheFavicon(
+                                from: faviconURL,
+                                domain: domain,
+                                localFileURL: saveURL
+                            ) { [weak tab, weak self] image in
+                                guard image != nil, let tab else { return }
+                                Task { @MainActor in
+                                    tab.faviconLocalFile = saveURL
+                                    try? self?.modelContext.save()
+                                }
+                            }
+                        } else {
+                            await MainActor.run {
+                                tab.setFavicon()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @discardableResult

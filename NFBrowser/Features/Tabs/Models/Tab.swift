@@ -125,19 +125,32 @@ class Tab: ObservableObject, Identifiable {
         backgroundColorHex = color.toHex() ?? "#000000"
     }
 
-    func setFavicon() {
+    func setFavicon(withURL explicitURL: URL? = nil) {
         guard let host = self.url.host else { return }
 
         let domain = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-        guard let faviconURL = FaviconService.shared.faviconURL(for: domain) else { return }
-        self.favicon = faviconURL
+        guard !domain.isEmpty else { return }
 
-        let fileName = "\(self.id.uuidString).png"
-        let saveURL = FileManager.default.faviconDirectory.appendingPathComponent(fileName)
+        let targetFaviconURL = explicitURL ?? FaviconService.shared.faviconURL(for: domain)
+        if let targetFaviconURL {
+            self.favicon = targetFaviconURL
+        }
+
+        let saveURL = FaviconService.shared.persistentURL(forTabId: self.id)
+
+        let domainURL = FaviconService.shared.persistentURL(forDomain: domain)
+        if FileManager.default.fileExists(atPath: domainURL.path) {
+            self.faviconLocalFile = domainURL
+            try? self.tabManager?.modelContext.save()
+            return
+        }
 
         FaviconService.shared
-            .downloadAndSaveFavicon(for: domain, faviconURL: faviconURL, to: saveURL) {
-                [weak self] sourceURL, success in
+            .downloadAndSaveFavicon(
+                for: domain,
+                faviconURL: targetFaviconURL ?? URL(string: "https://\(domain)/favicon.ico")!,
+                to: saveURL
+            ) { [weak self] sourceURL, success in
                 guard let self else { return }
                 if success {
                     Task { @MainActor in
@@ -145,6 +158,7 @@ class Tab: ObservableObject, Identifiable {
                         if let sourceURL {
                             self.favicon = sourceURL
                         }
+                        try? self.tabManager?.modelContext.save()
                     }
                 }
             }
@@ -423,12 +437,7 @@ class Tab: ObservableObject, Identifiable {
 
 extension FileManager {
     var faviconDirectory: URL {
-        let dir = urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Favicons")
-        if !fileExists(atPath: dir.path) {
-            try? createDirectory(at: dir, withIntermediateDirectories: true)
-        }
-        return dir
+        FaviconService.shared.persistentFaviconDirectory
     }
 }
 
