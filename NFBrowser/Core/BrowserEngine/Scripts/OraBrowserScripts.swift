@@ -14,6 +14,12 @@ enum OraBrowserScripts {
                 source: navigationAndMediaScript,
                 injectionTime: .atDocumentEnd,
                 forMainFrameOnly: true
+            ),
+            BrowserUserScript(
+                name: "ora-webstore-helper",
+                source: chromeWebStoreScript,
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
             )
         ]
 
@@ -369,6 +375,100 @@ enum OraBrowserScripts {
         };
 
         post({ type: 'ready', title: document.title });
+    })();
+    """
+
+    private static let chromeWebStoreScript = """
+    (function() {
+        if (!location.hostname.includes('chromewebstore.google.com') && !location.hostname.includes('chrome.google.com')) {
+            return;
+        }
+
+        function extractId() {
+            const match = location.pathname.match(/detail\\/[^\\/]+\\/([a-z]{32})/i);
+            return match ? match[1].toLowerCase() : null;
+        }
+
+        function getExtensionTitle() {
+            const h1 = document.querySelector('h1');
+            return h1 ? h1.innerText.trim() : document.title;
+        }
+
+        function updateInstallButton() {
+            const extId = extractId();
+            const existingBtn = document.getElementById('nfbrowser-install-btn');
+
+            if (!extId) {
+                if (existingBtn) existingBtn.remove();
+                return;
+            }
+
+            if (existingBtn && existingBtn.dataset.extId === extId) {
+                return;
+            }
+
+            if (existingBtn) existingBtn.remove();
+
+            const container = document.createElement('div');
+            container.id = 'nfbrowser-install-btn';
+            container.dataset.extId = extId;
+            container.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                z-index: 9999999;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #1e1e24 0%, #141418 100%);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.05);
+                padding: 10px 18px;
+                border-radius: 999px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 13px;
+                font-weight: 600;
+                color: #ffffff;
+                cursor: pointer;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            `;
+
+            container.innerHTML = `
+                <span style="font-size: 16px;">🧩</span>
+                <span id="nf-install-label">Instalar no NFBrowser</span>
+            `;
+
+            container.onmouseenter = () => {
+                container.style.transform = 'translateY(-2px) scale(1.03)';
+                container.style.borderColor = 'rgba(255, 255, 255, 0.35)';
+            };
+            container.onmouseleave = () => {
+                container.style.transform = 'translateY(0) scale(1)';
+                container.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            };
+
+            container.onclick = () => {
+                const label = document.getElementById('nf-install-label');
+                if (label) label.innerText = 'Instalando...';
+                container.style.pointerEvents = 'none';
+                container.style.opacity = '0.7';
+
+                try {
+                    if (window.__oraBridge && typeof window.__oraBridge.postMessage === 'function') {
+                        window.__oraBridge.postMessage('extensionInstaller', JSON.stringify({
+                            extensionId: extId,
+                            title: getExtensionTitle()
+                        }));
+                    }
+                } catch(e) {}
+            };
+
+            document.body.appendChild(container);
+        }
+
+        setInterval(updateInstallButton, 1000);
+        window.addEventListener('popstate', updateInstallButton);
+        setTimeout(updateInstallButton, 1500);
     })();
     """
 }

@@ -13,7 +13,7 @@ targetTemplates:
   ChromiumHelper:
     type: application
     platform: "macOS"
-    deploymentTarget: "15.0"
+    deploymentTarget: "15.4"
     sources:
       - path: ChromiumHelper
         excludes:
@@ -55,7 +55,7 @@ targets:
   NFBrowser:
     type: application
     platform: "macOS"
-    deploymentTarget: "15.0"
+    deploymentTarget: "15.4"
     sources:
       - path: NFBrowser
         excludes:
@@ -151,7 +151,7 @@ targets:
               - public.xhtml
         NSUserActivityTypes:
           - NSUserActivityTypeBrowsingWeb
-        LSMinimumSystemVersion: "15.0"
+        LSMinimumSystemVersion: "15.4"
         LSApplicationCategoryType: public.app-category.web-browser
 
     entitlements:
@@ -191,7 +191,7 @@ targets:
   NFBrowserTests:
     type: bundle.unit-test
     platform: "macOS"
-    deploymentTarget: "15.0"
+    deploymentTarget: "15.4"
     sources:
       - path: NFBrowserTests
     dependencies:
@@ -207,7 +207,7 @@ targets:
   NFBrowserUITests:
     type: bundle.ui-testing
     platform: "macOS"
-    deploymentTarget: "15.0"
+    deploymentTarget: "15.4"
     sources:
       - path: NFBrowserUITests
     dependencies:

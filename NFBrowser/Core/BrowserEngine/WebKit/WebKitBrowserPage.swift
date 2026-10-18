@@ -31,6 +31,7 @@ final class WebKitBrowserPage: NSObject, BrowserPage, WKNavigationDelegate, WKUI
         if customConfiguration == nil {
             webConfiguration.websiteDataStore = profile.dataStore
         }
+        webConfiguration.webExtensionController = ExtensionManager.shared.webExtensionController
         webConfiguration.allowsAirPlayForMediaPlayback = configuration.allowsAirPlayForMediaPlayback
         webConfiguration.preferences.setValue(
             configuration.allowsInspectableDebugging,
@@ -566,3 +567,22 @@ final class WebKitBrowserPage: NSObject, BrowserPage, WKNavigationDelegate, WKUI
         )
     }
 }
+
+extension WebKitBrowserPage: WKWebExtensionTab {
+    func webView(for extensionContext: WKWebExtensionContext) -> WKWebView? {
+        webView
+    }
+
+    func url(for extensionContext: WKWebExtensionContext) -> URL? {
+        currentURL
+    }
+
+    func title(for extensionContext: WKWebExtensionContext) -> String? {
+        title
+    }
+
+    func isLoadingComplete(for extensionContext: WKWebExtensionContext) -> Bool {
+        !isLoading
+    }
+}
+

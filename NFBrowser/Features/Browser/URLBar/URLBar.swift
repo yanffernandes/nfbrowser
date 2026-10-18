@@ -246,6 +246,8 @@ struct URLBar: View {
                         .transition(.scale.combined(with: .opacity))
                 }
 
+                ExtensionsToolbarButton(foregroundColor: buttonForegroundColor)
+
                 URLBarMenuButton(
                     foregroundColor: buttonForegroundColor,
                     onShare: { sourceView, sourceRect in

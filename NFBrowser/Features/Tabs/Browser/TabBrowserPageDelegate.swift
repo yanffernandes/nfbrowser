@@ -188,6 +188,29 @@ final class TabBrowserPageDelegate: BrowserPageDelegate {
             if let body = message.body as? String {
                 passwordCoordinator?.handleMessage(body, pageURL: page.currentURL)
             }
+        case "extensionInstaller":
+            if let body = message.body as? String,
+               let data = body.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let extId = json["extensionId"] as? String {
+                let title = json["title"] as? String
+                Task { @MainActor in
+                    do {
+                        try await ExtensionManager.shared.installFromChromeWebStore(extensionId: extId, name: title)
+                        ToastManager.shared.show(
+                            "\(title ?? "Extensão") instalada com sucesso!",
+                            type: .success,
+                            icon: .system("puzzlepiece.extension")
+                        )
+                    } catch {
+                        ToastManager.shared.show(
+                            "Erro ao instalar extensão: \(error.localizedDescription)",
+                            type: .error,
+                            icon: .system("exclamationmark.triangle")
+                        )
+                    }
+                }
+            }
         default:
             break
         }

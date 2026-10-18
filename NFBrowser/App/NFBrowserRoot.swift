@@ -105,6 +105,7 @@ typealias OraRoot = NFBrowserRoot
             .environmentObject(browserAgentTerminal)
             .environmentObject(dialogManager)
             .environmentObject(toastManager)
+            .environmentObject(ExtensionManager.shared)
             .dialogs(manager: dialogManager)
             .modelContext(tabContext)
             .modelContext(historyContext)
@@ -133,6 +134,7 @@ typealias OraRoot = NFBrowserRoot
                 tabManager.historyManager = historyManager
                 tabManager.downloadManager = downloadManager
                 tabManager.dialogManager = dialogManager
+                ExtensionManager.shared.loadInstalledExtensions()
                 Task {
                     let containerIDs = await MainActor.run {
                         (try? tabContext.fetch(FetchDescriptor<TabContainer>()))?.map(\.id) ?? []
