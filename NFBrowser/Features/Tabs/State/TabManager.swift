@@ -741,17 +741,17 @@ class TabManager: ObservableObject {
     }
 
     func togglePiP(_ currentTab: Tab?, _ oldTab: Tab?) {
-        if currentTab?.id != oldTab?.id, SettingsStore.shared.autoPiPEnabled {
+        guard currentTab?.id != oldTab?.id, SettingsStore.shared.autoPiPEnabled else { return }
+        DispatchQueue.main.async {
             currentTab?.evaluateJavaScript("window.__oraTriggerPiP(true)")
             oldTab?.evaluateJavaScript("window.__oraTriggerPiP()")
         }
     }
 
     func activateTab(_ tab: Tab) {
-        // Toggle Picture-in-Picture on tab switch
-        togglePiP(tab, activeTab)
+        let previousTab = activeTab
 
-        // Activate the tab
+        // Activate the tab immediately for instant UI transition
         activeTab?.maybeIsActive = false
         activeTab = tab
         activeTab?.maybeIsActive = true
@@ -774,7 +774,11 @@ class TabManager: ObservableObject {
                 isPrivate: tab.isPrivate
             )
         }
+
+        // Toggle Picture-in-Picture asynchronously so it doesn't block UI transition
+        togglePiP(tab, previousTab)
         tab.updateHeaderColor()
+
         DispatchQueue.main.async { [weak self] in
             try? self?.modelContext.save()
         }

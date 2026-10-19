@@ -57,11 +57,7 @@ final class BrowserPageHostView: NSView {
         hostedContentView = newContentView
 
         needsLayout = true
-        layoutSubtreeIfNeeded()
         newContentView.needsLayout = true
-        newContentView.layoutSubtreeIfNeeded()
-        newContentView.needsDisplay = true
-        displayIfNeeded()
 
         if shouldRestoreFirstResponder {
             window?.makeFirstResponder(newContentView)
@@ -129,8 +125,6 @@ final class BrowserPageHostView: NSView {
 
     private func refreshHostingLayout() {
         needsLayout = true
-        layoutSubtreeIfNeeded()
-        displayIfNeeded()
     }
 
     private func shouldTransferFirstResponder(from previousContentView: NSView?) -> Bool {

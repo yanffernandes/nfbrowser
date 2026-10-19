@@ -135,18 +135,18 @@ struct BrowserView: View {
         }
         .onChange(of: tabManager.activeTab) { oldTab, newTab in
             if showFloatingSidebar {
-                oldTab?.evaluateJavaScript(Self.removeShieldJS)
-                injectSidebarMouseShield(visible: true)
+                DispatchQueue.main.async {
+                    oldTab?.evaluateJavaScript(Self.removeShieldJS)
+                    injectSidebarMouseShield(visible: true)
+                }
             }
             if let tab = newTab, !tab.isWebViewReady {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                    tab.restoreTransientState(
-                        historyManager: historyManager,
-                        downloadManager: downloadManager,
-                        tabManager: tabManager,
-                        isPrivate: privacyMode.isPrivate
-                    )
-                }
+                tab.restoreTransientState(
+                    historyManager: historyManager,
+                    downloadManager: downloadManager,
+                    tabManager: tabManager,
+                    isPrivate: privacyMode.isPrivate
+                )
             }
         }
         .onAppear {

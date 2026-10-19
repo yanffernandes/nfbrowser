@@ -185,10 +185,22 @@ struct TabItem: View {
 
     @Environment(\.theme) private var theme
     @State private var isHovering = false
+    @State private var lastClickTime: Date? = nil
+
+    private func handleTap() {
+        let now = Date()
+        if let last = lastClickTime, now.timeIntervalSince(last) < NSEvent.doubleClickInterval {
+            lastClickTime = nil
+            tab.promptRename()
+        } else {
+            lastClickTime = now
+            onTap()
+        }
+    }
 
     var body: some View {
         HStack(spacing: 4) {
-            Button(action: onTap) {
+            Button(action: handleTap) {
                 HStack(spacing: 8) {
                     FavIcon(
                         isWebViewReady: tab.isWebViewReady,
@@ -218,11 +230,6 @@ struct TabItem: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(TabItemButtonStyle())
-            .simultaneousGesture(
-                TapGesture(count: 2).onEnded {
-                    tab.promptRename()
-                }
-            )
 
             actionButton
                 .opacity(isHovering ? 1.0 : 0.0)
@@ -274,7 +281,7 @@ struct TabItem: View {
         .contextMenu { contextMenuItems }
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isDragging)
         .animation(.easeInOut(duration: 0.14), value: isHovering)
-        .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isSelected)
+        .animation(.easeInOut(duration: 0.1), value: isSelected)
         .geometryGroup()
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

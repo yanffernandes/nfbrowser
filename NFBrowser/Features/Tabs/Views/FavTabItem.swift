@@ -18,8 +18,27 @@ struct FavTabItem: View {
     @EnvironmentObject var historyManager: HistoryManager
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var privacyMode: PrivacyMode
-
     @State private var isHovering = false
+    @State private var lastClickTime: Date? = nil
+
+    private func handleTap() {
+        let now = Date()
+        if let last = lastClickTime, now.timeIntervalSince(last) < NSEvent.doubleClickInterval {
+            lastClickTime = nil
+            tab.promptRename()
+        } else {
+            lastClickTime = now
+            onTap()
+            if !tab.isWebViewReady {
+                tab.restoreTransientState(
+                    historyManager: historyManager,
+                    downloadManager: downloadManager,
+                    tabManager: tabManager,
+                    isPrivate: privacyMode.isPrivate
+                )
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -88,24 +107,10 @@ struct FavTabItem: View {
                 : nil
         )
         .animation(.easeInOut(duration: 0.14), value: isHovering)
-        .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isSelected)
+        .animation(.easeInOut(duration: 0.1), value: isSelected)
         .onTapGesture {
-            onTap()
-            if !tab.isWebViewReady {
-                tab
-                    .restoreTransientState(
-                        historyManager: historyManager,
-                        downloadManager: downloadManager,
-                        tabManager: tabManager,
-                        isPrivate: privacyMode.isPrivate
-                    )
-            }
+            handleTap()
         }
-        .simultaneousGesture(
-            TapGesture(count: 2).onEnded {
-                tab.promptRename()
-            }
-        )
         .onHover { isHovering = $0 }
         .help(tab.displayTitle)
         .contextMenu {
